@@ -1,0 +1,101 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# AI agent temp directories
+.adal/
+.agents/
+.aiden/
+.augment/
+.claude/
+.coco/
+.codebuddy/
+.codin/
+.commandcode/
+.continue/
+.cortex/
+.crush/
+.factory/
+.goose/
+.iflow/
+.junie/
+.kilocode/
+.kiro/
+.kode/
+.mcpjam/
+.mux/
+.neovate/
+.openhands/
+.pi/
+.pochi/
+.qoder/
+.qwen/
+.roo/
+.trae-cn/
+.trae/
+.vibe/
+.windsurf/
+.zencoder/
+
+# local sparse clone used during setup
+willson_website_sparse/
+
+# temp test files
+test-*.js
+log/
+notion-writing-datasource-fix.patch
+
+# downloaded notion images (can be regenerated)
+public/notion-images/
+
+# large video files
+public/wall/xhs-xinjiang.mp4
+public/wall/xhs-hangzhou.mp4
+
+# project docs
+SOUL.md
+SPEC*.md
+WORKFLOW.md
+STAGE_*.md
+
+# skills
+skills/
+skills-lock.json
