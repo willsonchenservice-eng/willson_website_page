@@ -34,9 +34,9 @@ assert(
 
 assert(
   source.includes("showcaseFrameBackground") &&
-    source.includes('"bg-black"') &&
-    source.includes('"bg-white"'),
-  "WorkShowcase should use a black frame background for video covers and white for image covers."
+    source.includes('return "bg-black";') &&
+    !source.includes('"bg-white"'),
+  "WorkShowcase should use a black frame background for all media covers."
 );
 
 console.log("PASS: WorkShowcase media frame and video safeguards are present.");

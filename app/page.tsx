@@ -37,7 +37,7 @@ export default async function Home() {
     getAllSocial(),
     getAllPhotos(),
   ]);
-  const works = allWorks.slice(0, 4);
+  const works = allWorks.slice(0, 5);
   const posts = allPosts.slice(0, 5);
 
   return (
