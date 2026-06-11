@@ -15,16 +15,23 @@ assert(
   "Public test/debug API route handlers should not be present in app/api."
 );
 
-const writingDetail = fs.readFileSync(
-  path.join(process.cwd(), "app", "writing", "[slug]", "page.tsx"),
-  "utf8"
-);
+function collectSourceFiles(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) return collectSourceFiles(entryPath);
+    return /\.(tsx?|jsx?)$/.test(entry.name) ? [entryPath] : [];
+  });
+}
+
+const appSource = collectSourceFiles(path.join(process.cwd(), "app"))
+  .map((file) => fs.readFileSync(file, "utf8"))
+  .join("\n");
 
 assert(
-  !writingDetail.includes("WritingDetail Debug") &&
-    !writingDetail.includes("Available slugs") &&
-    !writingDetail.includes("Requested slug"),
-  "Writing detail page should not log debug slug information in production code."
+  !appSource.includes("WritingDetail Debug") &&
+    !appSource.includes("Available slugs") &&
+    !appSource.includes("Requested slug"),
+  "App pages should not log debug slug information in production code."
 );
 
 console.log("OK: no public debug API routes or writing detail debug logs.");

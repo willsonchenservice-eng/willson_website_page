@@ -69,13 +69,13 @@ function ShowcaseMedia({
   );
 }
 
-function showcaseFrameBackground(work: WorkMeta) {
-  return work.coverType === "video" || isShowcaseVideoSource(work.cover) ? "bg-black" : "bg-white";
+function showcaseFrameBackground(_work: WorkMeta) {
+  return "bg-black";
 }
 
 export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
   const visibleWorks = useMemo(
-    () => works.filter((work) => !work.externalLink && work.cover),
+    () => works.filter((work) => work.cover),
     [works]
   );
   const [activeIndex, setActiveIndex] = useState(0);
@@ -101,6 +101,7 @@ export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
       animatingRef.current = false;
       gsap.set(center, { xPercent: -50, yPercent: -50, x: 0, scale: 1, opacity: 1 });
       gsap.set(sides, { yPercent: -50, scale: 0.94, opacity: 1 });
+      gsap.set(copyRef.current, { y: 0, opacity: 1 });
       return;
     }
 
@@ -119,6 +120,7 @@ export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
       onComplete: () => {
         pendingDirectionRef.current = 0;
         animatingRef.current = false;
+        gsap.set(copyRef.current, { y: 0, opacity: 1 });
       },
     });
 
@@ -155,6 +157,7 @@ export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
 
   function changeWork(direction: number) {
     if (!hasSiblings) return;
+    if (animatingRef.current) return;
 
     const center = centerRef.current;
     if (!center) return;

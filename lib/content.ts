@@ -146,26 +146,28 @@ function readLocalWritingFull(): WritingFull[] {
 }
 
 export async function getAllWorkFull(): Promise<WorkFull[]> {
+  const localWorks = readLocalWorkFull().map(normalizeWorkCover);
+
   debugLog("getAllWorkFull: Trying Notion...");
   const notionWorks = await fetchNotionWork();
   if (notionWorks && notionWorks.length > 0) {
-    debugLog("getAllWorkFull: Using Notion data,", notionWorks.length, "works");
-    return (notionWorks as WorkFull[])
+    debugLog("getAllWorkFull: Merging Notion data,", notionWorks.length, "works");
+    return mergeBySlug(localWorks, notionWorks)
       .map(normalizeWorkCover)
       .filter((w: WorkFull) => !w.draft)
       .sort((a: WorkFull, b: WorkFull) => (a.order ?? 99) - (b.order ?? 99));
   }
   debugLog("getAllWorkFull: Falling back to local MDX");
 
-  const localWorks = readLocalWorkFull();
-  return localWorks.map(normalizeWorkCover);
+  return localWorks;
 }
 
 export async function getAllWork(): Promise<WorkMeta[]> {
+  const localWorks = readLocalWorkFull().map(normalizeWorkCover);
   const notionWorks = await fetchNotionWork(false, false);
   const allWorks = notionWorks && notionWorks.length > 0
-    ? (notionWorks as WorkFull[]).map(normalizeWorkCover)
-    : readLocalWorkFull().map(normalizeWorkCover);
+    ? mergeBySlug(localWorks, (notionWorks as WorkMeta[]).map(normalizeWorkCover))
+    : localWorks;
   return allWorks.sort((a, b) => (a.order ?? 999) - (b.order ?? 999)).map(w => ({
     slug: w.slug,
     title: w.title,
