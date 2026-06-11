@@ -75,7 +75,7 @@ function showcaseFrameBackground(work: WorkMeta) {
 
 export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
   const visibleWorks = useMemo(
-    () => works.filter((work) => !work.externalLink && work.cover),
+    () => works.filter((work) => work.cover),
     [works]
   );
   const [activeIndex, setActiveIndex] = useState(0);

@@ -1,10 +1,15 @@
 const fs = require("fs");
 const path = require("path");
 
-const dynamicPages = [
-  path.join(process.cwd(), "app", "work", "[slug]", "page.tsx"),
-  path.join(process.cwd(), "app", "writing", "[slug]", "page.tsx"),
-];
+function collectPages(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) return collectPages(entryPath);
+    return entry.name === "page.tsx" && entryPath.includes("[") ? [entryPath] : [];
+  });
+}
+
+const dynamicPages = collectPages(path.join(process.cwd(), "app"));
 
 let failed = false;
 
