@@ -81,6 +81,7 @@ willson_website_sparse/
 # temp test files
 test-*.js
 log/
+/work/
 notion-writing-datasource-fix.patch
 
 # downloaded notion images (can be regenerated)

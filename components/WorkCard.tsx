@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import type { WorkMeta } from "@/lib/content";
 import { ArrowUpRight } from "lucide-react";
+import WorkCoverImage from "@/components/WorkCoverImage";
 
 function normalizeAspectRatio(value?: string) {
   if (!value) return "16 / 10";
@@ -63,7 +64,7 @@ export default function WorkCard({
                   aria-label={work.title}
                 />
               ) : (
-                <img
+                <WorkCoverImage
                   src={cover}
                   alt={work.title}
                   className={`h-full w-full object-top transition-transform duration-700 ease-out group-hover:scale-[1.035] ${mediaFit}`}

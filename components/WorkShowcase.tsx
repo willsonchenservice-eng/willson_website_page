@@ -10,6 +10,7 @@ import {
   getShowcaseImageFitClass,
   isShowcaseVideoSource,
 } from "@/components/workShowcaseFit";
+import { WORK_COVER_PLACEHOLDER } from "@/components/WorkCoverImage";
 
 function wrapIndex(index: number, length: number) {
   return ((index % length) + length) % length;
@@ -25,11 +26,13 @@ function ShowcaseMedia({
   className?: string;
 }) {
   const isVideo = work.coverType === "video" || isShowcaseVideoSource(work.cover);
+  const [imageSrc, setImageSrc] = useState(work.cover ?? WORK_COVER_PLACEHOLDER);
   const [fitClass, setFitClass] = useState(() =>
     getShowcaseImageFitClass(getShowcaseImageFit(0, 0, work.cover))
   );
 
   useEffect(() => {
+    setImageSrc(work.cover ?? WORK_COVER_PLACEHOLDER);
     setFitClass(getShowcaseImageFitClass(getShowcaseImageFit(0, 0, work.cover)));
   }, [work.cover]);
 
@@ -50,13 +53,19 @@ function ShowcaseMedia({
 
   return (
     <Image
-      src={work.cover!}
+      src={imageSrc}
       alt={work.title}
       fill
       priority={priority}
       sizes="(min-width: 1024px) 760px, 92vw"
       className={`${fitClass} ${className}`}
       unoptimized
+      onError={() => {
+        if (imageSrc !== WORK_COVER_PLACEHOLDER) {
+          setImageSrc(WORK_COVER_PLACEHOLDER);
+          setFitClass("object-contain");
+        }
+      }}
       onLoad={(event) => {
         const image = event.currentTarget;
         setFitClass(
@@ -215,7 +224,7 @@ export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
             <div
               ref={leftRef}
               aria-hidden
-              className={`pointer-events-none absolute -left-10 top-1/2 hidden aspect-[4434/2986] w-[min(30vw,360px)] overflow-hidden rounded-[24px] shadow-[0_18px_50px_-34px_rgba(0,0,0,0.35)] md:block lg:-left-20 ${showcaseFrameBackground(previous)}`}
+              className={`pointer-events-none absolute -left-10 top-1/2 hidden aspect-[4434/2986] w-[min(30vw,360px)] -translate-y-1/2 overflow-hidden rounded-[24px] shadow-[0_18px_50px_-34px_rgba(0,0,0,0.35)] md:block lg:-left-20 ${showcaseFrameBackground(previous)}`}
             >
               <ShowcaseMedia
                 work={previous}
@@ -226,7 +235,7 @@ export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
             <div
               ref={rightRef}
               aria-hidden
-              className={`pointer-events-none absolute -right-10 top-1/2 hidden aspect-[4434/2986] w-[min(30vw,360px)] overflow-hidden rounded-[24px] shadow-[0_18px_50px_-34px_rgba(0,0,0,0.35)] md:block lg:-right-20 ${showcaseFrameBackground(next)}`}
+              className={`pointer-events-none absolute -right-10 top-1/2 hidden aspect-[4434/2986] w-[min(30vw,360px)] -translate-y-1/2 overflow-hidden rounded-[24px] shadow-[0_18px_50px_-34px_rgba(0,0,0,0.35)] md:block lg:-right-20 ${showcaseFrameBackground(next)}`}
             >
               <ShowcaseMedia
                 work={next}
@@ -262,7 +271,7 @@ export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
           ref={centerRef}
           href={`/work/${active.slug}`}
           data-cursor-text="VIEW"
-          className={`group absolute left-1/2 top-1/2 z-20 block aspect-[4434/2986] w-[min(90vw,760px)] overflow-hidden rounded-[28px] shadow-[0_24px_70px_-42px_rgba(0,0,0,0.55)] ${showcaseFrameBackground(active)}`}
+          className={`group absolute left-1/2 top-1/2 z-20 block aspect-[4434/2986] w-[min(90vw,760px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[28px] shadow-[0_24px_70px_-42px_rgba(0,0,0,0.55)] ${showcaseFrameBackground(active)}`}
         >
           <ShowcaseMedia work={active} priority />
         </Link>

@@ -4,6 +4,7 @@ import { AlignLeft, ArrowLeft, ExternalLink } from "lucide-react";
 import { getAllWork, getWork } from "@/lib/content";
 import MdxBody from "@/components/MdxBody";
 import { Badge } from "@/components/ui/badge";
+import WorkCoverImage from "@/components/WorkCoverImage";
 
 export async function generateStaticParams() {
   const works = await getAllWork();
@@ -155,7 +156,7 @@ export default async function WorkDetail({
                     />
                   </div>
                 ) : (
-                  <img
+                  <WorkCoverImage
                     src={meta.cover}
                     alt={meta.title}
                     className="block h-auto w-full rounded-lg shadow-[0_24px_70px_-48px_rgba(0,0,0,0.55)]"

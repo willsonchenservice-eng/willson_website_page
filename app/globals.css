@@ -64,7 +64,7 @@
   --color-sticky-pink: var(--sticky-pink);
   --color-hot: var(--red-pen);
   --color-hot-foreground: var(--red-pen-foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-serif: Helvetica, "Courier New", Courier, monospace;
   --font-hand: "Caveat", "Ma Shan Zheng", "Instrument Serif", "Songti SC", cursive;
   --font-mono: Helvetica, "Courier New", Courier, monospace;

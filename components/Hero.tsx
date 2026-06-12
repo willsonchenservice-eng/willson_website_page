@@ -23,8 +23,8 @@ export default function Hero({ photos }: { photos: Photo[] }) {
         {/* grid: greeting + name (left)  ·  sticky note (right) */}
         <div className="grid lg:grid-cols-12 gap-y-6 gap-x-10 items-start">
           <motion.div
-            initial={reduced ? { opacity: 0 } : { opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={false}
+            animate={reduced ? undefined : { y: [0, 0] }}
             transition={{ duration: 0.9, delay: 0.9, ease }}
             className="lg:col-span-8 min-w-0"
           >
@@ -61,12 +61,8 @@ export default function Hero({ photos }: { photos: Photo[] }) {
 
           {/* sticky note: today's focus */}
           <motion.div
-            initial={
-              reduced
-                ? { opacity: 0 }
-                : { opacity: 0, y: 24, rotate: -6 }
-            }
-            animate={{ opacity: 1, y: 0, rotate: 2.4 }}
+            initial={false}
+            animate={reduced ? undefined : { rotate: 2.4 }}
             transition={{ duration: 1.0, delay: 1.15, ease }}
             className="lg:col-span-4 flex justify-start lg:justify-end"
             style={{ transformOrigin: "top right" }}
