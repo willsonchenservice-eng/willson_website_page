@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import {
   motion,
@@ -124,6 +123,9 @@ function HangingPhoto({
   const isGif = /\.gif(?:$|\?)/i.test(p.src);
   const mediaFitClass = p.fit === "cover" ? "object-cover" : "object-contain";
   const mediaTransform = `${p.imageScale ? `scale(${p.imageScale}) ` : ""}translateZ(0)`;
+  const mediaFrameStyle: CSSProperties = {
+    width: `calc(var(--mw) * var(--scale, 1))`,
+  };
   const mediaStyle: CSSProperties = {
     transform: mediaTransform,
     transformOrigin: p.imageScale ? "50% 0%" : undefined,
@@ -166,11 +168,8 @@ function HangingPhoto({
         }}
       >
         <div
-          className="relative bg-line overflow-hidden"
-          style={{
-            width: `calc(var(--mw) * var(--scale, 1))`,
-            height: `calc(var(--mh) * var(--scale, 1))`,
-          }}
+          className="bg-line overflow-hidden"
+          style={mediaFrameStyle}
         >
           {isVideo ? (
             <video
@@ -181,7 +180,7 @@ function HangingPhoto({
               muted
               playsInline
               preload="auto"
-              className={`absolute inset-0 w-full h-full ${mediaFitClass}`}
+              className={`block w-full h-auto ${mediaFitClass}`}
               style={mediaStyle}
               aria-label={p.caption}
               onLoadedMetadata={(event) =>
@@ -198,7 +197,7 @@ function HangingPhoto({
               alt={p.caption}
               decoding="async"
               loading={i < 3 ? "eager" : "lazy"}
-              className={`absolute inset-0 w-full h-full ${mediaFitClass}`}
+              className={`block w-full h-auto ${mediaFitClass}`}
               style={mediaStyle}
               data-photowall-gif-loop="true"
               onLoad={(event) =>
@@ -209,16 +208,14 @@ function HangingPhoto({
               }
             />
           ) : (
-            <Image
+            <img
               ref={mediaRef as RefObject<HTMLImageElement>}
               src={p.src}
               alt={p.caption}
-              fill
-              sizes={`${p.width}px`}
+              decoding="async"
               loading={i < 3 ? "eager" : "lazy"}
-              className={mediaFitClass}
+              className={`block w-full h-auto ${mediaFitClass}`}
               style={mediaStyle}
-              unoptimized
               onLoad={(event) =>
                 updateMediaRatio(
                   event.currentTarget.naturalWidth,
@@ -258,14 +255,12 @@ function HangingPhoto({
 
   useEffect(() => {
     if (reduced) {
-      controls.set({ opacity: 1, rotate: p.rotate });
+      controls.set({ rotate: p.rotate });
       return;
     }
     controls.start({
-      opacity: 1,
       rotate: p.rotate,
       transition: {
-        opacity: { delay: 0.2 + i * 0.16, duration: 0.4, ease: easeOut },
         rotate: {
           delay: 0.2 + i * 0.16,
           type: "spring",
@@ -349,7 +344,7 @@ function HangingPhoto({
       <motion.div
         className="relative"
         style={{ transformOrigin: "50% 0%" }}
-        initial={{ opacity: 0, rotate: 0 }}
+        initial={false}
         animate={controls}
         whileHover={hoverProps}
         whileTap={reduced ? undefined : { scale: 0.98 }}

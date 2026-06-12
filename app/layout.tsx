@@ -13,11 +13,6 @@ import Nav from "@/components/Nav";
 import BackCover from "@/components/BackCover";
 import InkPen from "@/components/InkPen";
 import { site } from "@/lib/site";
-import { Geist } from "next/font/google";
-import { cn } from "@/lib/utils";
-
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
-
 export const metadata: Metadata = {
   title: {
     default: `${site.name} — ${site.role}`,
@@ -30,7 +25,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="zh-CN" className={cn("font-sans", geist.variable)}>
+    <html lang="zh-CN" className="font-sans">
       <body className="min-h-screen flex flex-col">
         <InkPen />
         <Nav />

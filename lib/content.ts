@@ -105,13 +105,15 @@ function mergeBySlug<T extends { slug: string }>(localItems: T[], remoteItems: T
 }
 
 const coverPathAliases: Record<string, string> = {
-  "/wall/douyin-exam.png": "/wall/douyin-review.png",
-  "/wall/feishu-network-security.png": "/wall/feishu_security.png",
-  "/wall/feishu-open-platform.png": "/wall/feishu_openplatform.png",
-  "/wall/feishu-security-overview.png": "/wall/feishu_security.png",
-  "/wall/feishu-security.png": "/wall/feishu_security.png",
+  "/wall/douyin-exam.png": "/work-covers/douyin-review.jpg",
+  "/wall/douyin-review.png": "/work-covers/douyin-review.jpg",
+  "/wall/douyin-reviewer-care.png": "/work-covers/douyin-reviewer-care.jpg",
+  "/wall/feishu-network-security.png": "/work-covers/feishu-network-security.jpg",
+  "/wall/feishu-open-platform.png": "/work-covers/feishu-open-platform.jpg",
+  "/wall/feishu-security-overview.png": "/work-covers/feishu-security-overview.jpg",
+  "/wall/feishu-security.png": "/work-covers/feishu-security.jpg",
   "/wall/stickers.png": "/wall/stickers.gif",
-  "/wall/回见头图.JPG": "/wall/huijian.JPG",
+  "/wall/回见头图.JPG": "/work-covers/huijian.jpg",
 };
 
 function normalizeWorkCover<T extends WorkMeta>(work: T): T {
