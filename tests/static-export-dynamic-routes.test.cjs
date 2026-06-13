@@ -1,6 +1,13 @@
 const fs = require("fs");
 const path = require("path");
 
+const nextConfig = fs.readFileSync(path.join(process.cwd(), "next.config.ts"), "utf8");
+
+if (!/trailingSlash:\s*true/.test(nextConfig)) {
+  console.error("FAIL: next.config.ts should keep trailingSlash enabled for OSS/CDN static hosting.");
+  process.exit(1);
+}
+
 function collectPages(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const entryPath = path.join(dir, entry.name);
