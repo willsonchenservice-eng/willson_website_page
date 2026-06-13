@@ -25,7 +25,7 @@ function debugLog(...args: unknown[]) {
   }
 }
 
-const CACHE_VERSION = "work-order-column-2026-06-11";
+const CACHE_VERSION = "markdown-strong-work-cover-2026-06-13";
 
 // 内存缓存，避免重复请求 Notion
 // 用 globalThis 避免热更新时缓存丢失
@@ -81,6 +81,18 @@ const workSlugByTitle: Record<string, string> = {
   "微信表情包合集": "stickers",
 };
 
+const workCoverFallbackBySlug: Record<string, string> = {
+  "douyin-exam": "/work-covers/douyin-review.jpg",
+  "douyin-review": "/work-covers/douyin-review.jpg",
+  "douyin-reviewer-care": "/work-covers/douyin-reviewer-care.jpg",
+  "feishu-network-security": "/work-covers/feishu-network-security.jpg",
+  "feishu-open-platform": "/work-covers/feishu-open-platform.jpg",
+  "feishu-security-overview": "/work-covers/feishu-security-overview.jpg",
+  "feishu-security": "/work-covers/feishu-security.jpg",
+  "huijian-app": "/work-covers/huijian.jpg",
+  stickers: "/wall/stickers.gif",
+};
+
 function normalizeSlug(value: string) {
   return value
     .trim()
@@ -118,7 +130,25 @@ function ensureUniqueWorkSlugs<T extends { slug: string; title: string }>(works:
 
 function extensionFromFilename(filename?: string) {
   const ext = filename?.match(/\.([a-z0-9]{2,5})(?:$|\?)/i)?.[1];
-  return ext ? ext.toLowerCase() : "png";
+  if (!ext) return "png";
+  return normalizeImageExtension(ext);
+}
+
+function normalizeImageExtension(ext: string) {
+  const normalized = ext.toLowerCase();
+  if (normalized === "jpeg") return "jpg";
+  return normalized;
+}
+
+function extensionFromImageUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    const wxFormat = parsed.searchParams.get("wx_fmt") || parsed.searchParams.get("tp");
+    if (wxFormat) return normalizeImageExtension(wxFormat.replace(/^image\//, ""));
+    return extensionFromFilename(parsed.pathname);
+  } catch {
+    return "png";
+  }
 }
 
 function stableHash(value: string) {
@@ -246,7 +276,8 @@ async function downloadImage(
   fileId: string,
   force: boolean = false,
   filenameHint?: string,
-  fallbackFileId?: string
+  fallbackFileId?: string,
+  headers?: Record<string, string>
 ): Promise<string> {
   const imagesDir = ensureImagesDir();
 
@@ -291,7 +322,7 @@ async function downloadImage(
       reject(err);
     };
 
-    const request = https.get(url, (response) => {
+    const request = https.get(url, { headers }, (response) => {
       if (response.statusCode !== 200) {
         response.resume();
         rejectOrFallback(new Error(`Failed to download image: ${response.statusCode}`));
@@ -338,16 +369,19 @@ async function processNotionImages(markdown: string, force: boolean = false): Pr
     const original = match[0];
     const url = match[2];
 
-    // 只处理 Notion 的 S3 图片链接
-    if (url.includes("prod-files-secure.s3.us-west-2.amazonaws.com")) {
+    const isNotionAsset = url.includes("prod-files-secure.s3.us-west-2.amazonaws.com");
+    const isWechatAsset = isWechatImageUrl(url);
+
+    if (isNotionAsset || isWechatAsset) {
       try {
-        const filename = decodeURIComponent(new URL(url).pathname.split("/").pop() || `img-${index}.png`);
+        const filename = imageFilenameFromUrl(url, index);
         const localUrl = await downloadImage(
           url,
           notionFileCacheId(`markdown-${index}`, index, filename, url),
           force,
           filename,
-          legacyNotionFileCacheId(`markdown-${index}`, index, filename)
+          legacyNotionFileCacheId(`markdown-${index}`, index, filename),
+          isWechatAsset ? wechatImageHeaders() : undefined
         );
         replacements.push({ original, localUrl });
         index += 1;
@@ -366,6 +400,35 @@ async function processNotionImages(markdown: string, force: boolean = false): Pr
   }
 
   return result;
+}
+
+function isWechatImageUrl(url: string) {
+  try {
+    const hostname = new URL(url).hostname;
+    return /(^|\.)mmbiz\.qpic\.cn$/i.test(hostname) || /(^|\.)qpic\.cn$/i.test(hostname);
+  } catch {
+    return false;
+  }
+}
+
+function imageFilenameFromUrl(url: string, index: number) {
+  try {
+    const parsed = new URL(url);
+    const pathFilename = decodeURIComponent(parsed.pathname.split("/").pop() || "");
+    const hasExtension = /\.[a-z0-9]{2,5}$/i.test(pathFilename);
+    if (pathFilename && hasExtension) return pathFilename;
+    return `img-${index}.${extensionFromImageUrl(url)}`;
+  } catch {
+    return `img-${index}.png`;
+  }
+}
+
+function wechatImageHeaders() {
+  return {
+    referer: "https://mp.weixin.qq.com/",
+    "user-agent":
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+  };
 }
 
 /**
@@ -448,7 +511,11 @@ function normalizeBasicMarkdown(markdown: string) {
   return markdown
     .replace(/<br>/g, "<br/>")
     .replace(/<hr>/g, "<hr/>")
-    .replace(/<img([^>]*)>/g, "<img$1/>");
+    .replace(/<img([^>]*)>/g, "<img$1/>")
+    .replace(/\\\*\\\*/g, "**")
+    .replace(/\*\*\s*\*\*/g, "")
+    .replace(/\*\*([^*\n]*?\S)\s+\*\*(?=\S)/g, "**$1** ")
+    .replace(/\*\*([^*\n]*?\S)\s+\*\*/g, "**$1**");
 }
 
 export async function fetchNotionWritingPreview(force: boolean = false) {
@@ -653,6 +720,29 @@ function notionAssetUrl(file: any): string | undefined {
   if (file.type === "file" && file.file?.url) return file.file.url;
   if (file.type === "external" && file.external?.url) return file.external.url;
   return undefined;
+}
+
+async function resolveNotionAssetUrl(
+  file: any,
+  pageId: string,
+  index: number,
+  force: boolean
+): Promise<string | undefined> {
+  if (!file) return undefined;
+  if (file.type === "external" && file.external?.url) return file.external.url;
+  if (file.type !== "file" || !file.file?.url) return undefined;
+
+  try {
+    return await downloadImage(
+      file.file.url,
+      notionFileCacheId(pageId, index, file.name, file.file.url),
+      force,
+      file.name,
+      legacyNotionFileCacheId(pageId, index, file.name)
+    );
+  } catch {
+    return file.file.url;
+  }
 }
 
 export async function fetchNotionBeliefs(force: boolean = false) {
@@ -882,10 +972,12 @@ export async function fetchNotionWork(force: boolean = false, includeContent: bo
 
           const pageCover = (page as any).cover;
           const coverFile = coverProp?.files?.[0];
-          const cover = notionAssetUrl(pageCover) || notionAssetUrl(coverFile);
-          const coverType = pageCover
-            ? mediaTypeFromNotionFile(pageCover)
-            : mediaTypeFromNotionFile(coverFile);
+          const localCoverFallback = workCoverFallbackBySlug[slug];
+          const downloadedCover =
+            (await resolveNotionAssetUrl(pageCover, page.id, 0, force)) ||
+            (await resolveNotionAssetUrl(coverFile, page.id, 1, force));
+          const cover = sanitizeWorkCoverUrl(downloadedCover) || localCoverFallback || "/work/_placeholder.svg";
+          const coverType = mediaTypeFromSource(cover);
 
           let content = "";
           if (includeContent) {
@@ -924,6 +1016,15 @@ export async function fetchNotionWork(force: boolean = false, includeContent: bo
     console.warn(`Notion work unavailable. Falling back to local MDX. ${formatNotionError(error)}`);
     return null;
   }
+}
+
+function sanitizeWorkCoverUrl(url?: string) {
+  if (!url) return undefined;
+  try {
+    const hostname = new URL(url).hostname;
+    if (hostname === "prod-files-secure.s3.us-west-2.amazonaws.com") return undefined;
+  } catch {}
+  return url;
 }
 
 export async function fetchNotionPhotos(force: boolean = false) {

@@ -13,8 +13,13 @@ assert(
 );
 
 assert(
+  source.includes("aspect-[1400/1051]"),
+  "WorkShowcase should use the real cover asset ratio on mobile."
+);
+
+assert(
   source.includes("aspect-[4434/2986]"),
-  "WorkShowcase should use the fixed Feishu business platform cover ratio."
+  "WorkShowcase should keep the confirmed desktop Feishu business platform cover ratio as the default."
 );
 
 assert(

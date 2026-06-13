@@ -1,5 +1,9 @@
-export type ShowcaseImageFit = "contain" | "cover-top";
+export type ShowcaseImageFit = "contain" | "cover-top" | "contain-mobile-cover-top-desktop";
 
+export const SHOWCASE_MOBILE_FRAME_WIDTH = 1400;
+export const SHOWCASE_MOBILE_FRAME_HEIGHT = 1051;
+export const SHOWCASE_MOBILE_FRAME_ASPECT =
+  SHOWCASE_MOBILE_FRAME_WIDTH / SHOWCASE_MOBILE_FRAME_HEIGHT;
 export const SHOWCASE_FRAME_WIDTH = 4434;
 export const SHOWCASE_FRAME_HEIGHT = 2986;
 export const SHOWCASE_FRAME_ASPECT = SHOWCASE_FRAME_WIDTH / SHOWCASE_FRAME_HEIGHT;
@@ -20,9 +24,18 @@ export function getShowcaseImageFit(
   if (!Number.isFinite(width) || !Number.isFinite(height)) return "contain";
   if (width <= 0 || height <= 0) return "contain";
 
-  return width / height < SHOWCASE_FRAME_ASPECT ? "cover-top" : "contain";
+  const imageAspect = width / height;
+  if (imageAspect >= SHOWCASE_FRAME_ASPECT) return "contain";
+  if (imageAspect >= SHOWCASE_MOBILE_FRAME_ASPECT * 0.98) {
+    return "contain-mobile-cover-top-desktop";
+  }
+
+  return "cover-top";
 }
 
 export function getShowcaseImageFitClass(fit: ShowcaseImageFit) {
+  if (fit === "contain-mobile-cover-top-desktop") {
+    return "object-contain md:object-cover md:object-top";
+  }
   return fit === "cover-top" ? "object-cover object-top" : "object-contain";
 }

@@ -29,18 +29,18 @@ export default async function WritingIndex() {
           key={post.slug}
           data-writing-article
           data-writing-topic={getTopic(post)}
-          className="py-10 first:pt-0 sm:py-14"
+          className="min-w-0 py-14 first:pt-0 sm:py-20"
         >
           <h2
-            className="max-w-5xl text-3xl font-semibold leading-[1.16] tracking-normal text-foreground sm:text-4xl"
+            className="max-w-5xl text-[1.85rem] font-semibold leading-[1.16] tracking-normal text-foreground sm:text-4xl"
             style={{ fontFamily: 'Helvetica, "Courier New", Courier, monospace' }}
           >
             {post.title}
           </h2>
-          <p className="mt-5 text-base leading-none text-muted">
+          <p className="mt-4 text-sm leading-none text-muted sm:mt-5 sm:text-base">
             {formatDate(post.date)}
           </p>
-          <MdxBody source={post.content} className="blog-list-body mt-8" />
+          <MdxBody source={post.content} className="blog-list-body mt-6 sm:mt-8" />
         </article>
       ))}
     </WritingIndexClient>

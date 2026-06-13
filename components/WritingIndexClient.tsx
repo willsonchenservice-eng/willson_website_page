@@ -43,27 +43,26 @@ export default function WritingIndexClient({
   }, [activeTopic]);
 
   return (
-    <div className="notebook-shell pb-24">
-      <header ref={heroRef} className="mx-auto max-w-6xl pt-12 text-center">
+    <div className="notebook-shell pb-20 sm:pb-24">
+      <header ref={heroRef} className="mx-auto max-w-6xl pt-10 text-center sm:pt-12">
         <h1
-          className="font-semibold leading-[0.95] tracking-normal text-foreground"
+          className="text-[3.25rem] font-semibold leading-[0.95] tracking-normal text-foreground sm:text-[5rem] lg:text-[6.25rem]"
           style={{
             fontFamily: 'Helvetica, "Courier New", Courier, monospace',
-            fontSize: "clamp(3.5rem, 7vw, 6.25rem)",
           }}
         >
           Blog
         </h1>
-        <p className="mx-auto mt-8 max-w-4xl text-balance text-xl font-medium leading-relaxed text-foreground sm:text-2xl">
-          断断续续写下读到的、想到的、做项目时被刺到的。这里收起那些后来还值得回看的问题和线索。
+        <p className="mx-auto mt-6 max-w-4xl text-balance text-base font-medium leading-7 text-foreground sm:mt-8 sm:text-2xl sm:leading-relaxed">
+          这里记录一些读到的、想到的，以及做项目时冒出来的问题。先放下来，过一阵子再回头看。
         </p>
       </header>
 
-      <div className="mt-28 grid gap-12 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-24">
-        <aside ref={sidebarRef} className="lg:sticky lg:top-24 lg:h-fit">
+      <div className="mt-14 grid min-w-0 gap-10 sm:mt-20 lg:mt-28 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-24">
+        <aside ref={sidebarRef} className="min-w-0 lg:sticky lg:top-24 lg:h-fit">
           <nav
             aria-label="文章分类"
-            className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:gap-5 lg:overflow-visible lg:pb-0"
+            className="flex w-full min-w-0 gap-2 overflow-x-auto pb-2 lg:flex-col lg:gap-5 lg:overflow-visible lg:pb-0"
           >
             {topics.map((topic) => {
               const isActive = topic === activeTopic;
@@ -72,7 +71,7 @@ export default function WritingIndexClient({
                   key={topic}
                   type="button"
                   onClick={() => setActiveTopic(topic)}
-                  className={`shrink-0 rounded-md px-5 py-3 text-left text-base font-semibold transition lg:w-full ${
+                  className={`min-h-11 shrink-0 rounded-md px-4 py-2.5 text-left text-sm font-semibold transition sm:px-5 sm:py-3 sm:text-base lg:w-full ${
                     isActive
                       ? "bg-[color-mix(in_srgb,var(--foreground)_6%,transparent)] text-foreground"
                       : "text-foreground hover:bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)]"
@@ -86,7 +85,7 @@ export default function WritingIndexClient({
         </aside>
 
         <main ref={mainRef} className="min-w-0">
-          <div className="divide-y divide-line">{children}</div>
+          <div className="blog-list-sections overflow-hidden">{children}</div>
         </main>
       </div>
     </div>

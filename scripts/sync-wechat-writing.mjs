@@ -338,11 +338,11 @@ async function normalizeArticle(article) {
   const summary = cleanText(article.digest || extractText(article.content || "").slice(0, 120));
   const sourceUrl = article.url || article.content_source_url || "";
   const imageCount = extractImageUrls(article.content || "").length;
-  const remoteMarkdown = htmlToMarkdown(article.content || "", { imageMap: new Map() });
+  const remoteMarkdown = makeMdxSafe(htmlToMarkdown(article.content || "", { imageMap: new Map() }));
   const imageMap = config.dryRun
     ? new Map()
     : await downloadImages(article.content || "", `${date}-${slug}`);
-  const localMarkdown = htmlToMarkdown(article.content || "", { imageMap });
+  const localMarkdown = makeMdxSafe(htmlToMarkdown(article.content || "", { imageMap }));
   const localFilename = `${date}-${slug}.mdx`;
 
   return {
@@ -393,6 +393,16 @@ function htmlToMarkdown(html, { imageMap }) {
 
   markdown = markdown.replace(/<script[\s\S]*?<\/script>/gi, "");
   markdown = markdown.replace(/<style[\s\S]*?<\/style>/gi, "");
+  markdown = markdown.replace(/<pre\b[^>]*>([\s\S]*?)<\/pre>/gi, (_, body) => {
+    const code = codeBlockText(body);
+    return code ? `\n\n\`\`\`\n${code}\n\`\`\`\n\n` : "";
+  });
+  markdown = markdown.replace(/<code\b[^>]*>([\s\S]*?)<\/code>/gi, (_, body) => {
+    const code = codeBlockText(body);
+    return code.includes("\n")
+      ? `\n\n\`\`\`\n${code}\n\`\`\`\n\n`
+      : `\`${code.replace(/`/g, "\\`")}\``;
+  });
   markdown = markdown.replace(/<(h[1-6])[^>]*>([\s\S]*?)<\/\1>/gi, (_, tag, body) => {
     const level = Number(tag.slice(1));
     return `\n\n${"#".repeat(Math.min(level, 3))} ${cleanText(body)}\n\n`;
@@ -422,7 +432,10 @@ function htmlToMarkdown(html, { imageMap }) {
       .map((line) => `> ${line}`)
       .join("\n")}\n\n`;
   });
-  markdown = markdown.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_, body) => `\n- ${cleanText(body)}`);
+  markdown = markdown.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_, body) => {
+    const text = cleanText(body);
+    return text ? `\n- ${text}` : "";
+  });
   markdown = markdown.replace(/<br\s*\/?>/gi, "\n");
   markdown = markdown.replace(/<\/(p|section|div|ul|ol)>/gi, "\n\n");
   markdown = markdown.replace(/<[^>]+>/g, "");
@@ -431,10 +444,60 @@ function htmlToMarkdown(html, { imageMap }) {
     .split(/\n/)
     .map((line) => line.replace(/[ \t]+$/g, ""))
     .join("\n")
+    .replace(/\*\*\s*\*\*/g, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
   return markdown;
+}
+
+function makeMdxSafe(markdown) {
+  let inFence = false;
+  return String(markdown || "")
+    .split(/\n/)
+    .flatMap((line) => {
+      if (/^```/.test(line.trim())) {
+        inFence = !inFence;
+        return [line];
+      }
+      if (inFence) return [line];
+
+      const safeLine = escapeMdxJsxPlaceholders(line);
+      return isStandaloneJsonLine(safeLine) ? ["```json", safeLine, "```"] : [safeLine];
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function escapeMdxJsxPlaceholders(line) {
+  return String(line || "")
+    .replace(/<([A-Za-z][A-Za-z0-9_-]*)>/g, "`<$1>`")
+    .replace(/<\/([A-Za-z][A-Za-z0-9_-]*)>/g, "`</$1>`");
+}
+
+function isStandaloneJsonLine(line) {
+  const trimmed = String(line || "").trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return false;
+  try {
+    JSON.parse(trimmed);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function codeBlockText(html) {
+  return decodeHtml(
+    String(html || "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|section|div|li)>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+  )
+    .split(/\n/)
+    .map((line) => line.replace(/\s+$/g, ""))
+    .join("\n")
+    .replace(/^\n+|\n+$/g, "");
 }
 
 async function downloadImages(html, slug) {
@@ -680,62 +743,134 @@ function richText(input, maxChunks = 20) {
 
 function markdownToNotionBlocks(markdown) {
   const blocks = [];
-  const parts = String(markdown || "").split(/\n{2,}/);
+  const parts = splitMarkdownParts(markdown);
 
   for (const part of parts) {
-    const text = part.trim();
-    if (!text) continue;
-    const image = text.match(/^!\[[^\]]*]\(([^)]+)\)$/);
-    if (image && /^https?:\/\//.test(image[1])) {
-      blocks.push({
-        object: "block",
-        type: "image",
-        image: { type: "external", external: { url: image[1] } },
-      });
-      continue;
-    }
+    blocks.push(...markdownPartToNotionBlocks(part));
+  }
 
-    const heading = text.match(/^(#{1,3})\s+(.+)$/);
-    if (heading) {
-      const type = `heading_${heading[1].length}`;
-      blocks.push({
-        object: "block",
-        type,
-        [type]: { rich_text: richText(heading[2]) },
-      });
-      continue;
-    }
+  return blocks.length ? blocks : [{ object: "block", type: "paragraph", paragraph: { rich_text: [] } }];
+}
 
-    if (text.startsWith("> ")) {
-      blocks.push({
-        object: "block",
-        type: "quote",
-        quote: { rich_text: richText(text.replace(/^>\s?/gm, "")) },
-      });
-      continue;
-    }
+function splitMarkdownParts(markdown) {
+  const parts = [];
+  const paragraph = [];
+  let code = null;
 
-    if (/^-\s+/m.test(text)) {
-      for (const line of text.split(/\n/).filter(Boolean)) {
-        blocks.push({
-          object: "block",
-          type: "bulleted_list_item",
-          bulleted_list_item: { rich_text: richText(line.replace(/^-\s+/, "")) },
-        });
+  const flushParagraph = () => {
+    const text = paragraph.join("\n").trim();
+    if (text) parts.push(text);
+    paragraph.length = 0;
+  };
+
+  for (const line of String(markdown || "").split(/\n/)) {
+    const fence = line.match(/^```([a-z0-9_-]*)\s*$/i);
+    if (fence) {
+      if (code) {
+        parts.push({ type: "code", language: code.language, text: code.lines.join("\n") });
+        code = null;
+      } else {
+        flushParagraph();
+        code = { language: fence[1] || "", lines: [] };
       }
       continue;
     }
 
-    for (const chunk of splitText(text, 1900)) {
-      blocks.push({
-        object: "block",
-        type: "paragraph",
-        paragraph: { rich_text: richText(chunk) },
-      });
+    if (code) {
+      code.lines.push(line);
+      continue;
     }
+
+    if (!line.trim()) {
+      flushParagraph();
+      continue;
+    }
+
+    paragraph.push(line);
   }
 
-  return blocks.length ? blocks : [{ object: "block", type: "paragraph", paragraph: { rich_text: [] } }];
+  if (code) {
+    parts.push({ type: "code", language: code.language, text: code.lines.join("\n") });
+  }
+  flushParagraph();
+
+  return parts;
+}
+
+function markdownPartToNotionBlocks(part) {
+  if (part?.type === "code") {
+    return splitText(part.text, 1900).map((chunk) => ({
+      object: "block",
+      type: "code",
+      code: {
+        language: normalizeNotionCodeLanguage(part.language),
+        rich_text: richText(chunk),
+      },
+    }));
+  }
+
+  const text = String(part || "").trim();
+  if (!text) return [];
+
+  const image = text.match(/^!\[[^\]]*]\(([^)]+)\)$/);
+  if (image && /^https?:\/\//.test(image[1])) {
+    return [
+      {
+        object: "block",
+        type: "image",
+        image: { type: "external", external: { url: image[1] } },
+      },
+    ];
+  }
+
+  const heading = text.match(/^(#{1,3})\s+(.+)$/);
+  if (heading) {
+    const type = `heading_${heading[1].length}`;
+    return [
+      {
+        object: "block",
+        type,
+        [type]: { rich_text: richText(heading[2]) },
+      },
+    ];
+  }
+
+  if (text.startsWith("> ")) {
+    return [
+      {
+        object: "block",
+        type: "quote",
+        quote: { rich_text: richText(text.replace(/^>\s?/gm, "")) },
+      },
+    ];
+  }
+
+  if (/^-\s+/m.test(text)) {
+    return text.split(/\n/).filter(Boolean).map((line) => ({
+      object: "block",
+      type: "bulleted_list_item",
+      bulleted_list_item: { rich_text: richText(line.replace(/^-\s+/, "")) },
+    }));
+  }
+
+  return splitText(text, 1900).map((chunk) => ({
+    object: "block",
+    type: "paragraph",
+    paragraph: { rich_text: richText(chunk) },
+  }));
+}
+
+function normalizeNotionCodeLanguage(language) {
+  const normalized = String(language || "").trim().toLowerCase();
+  if (!normalized) return "plain text";
+  if (normalized === "json") return "json";
+  if (normalized === "js" || normalized === "javascript") return "javascript";
+  if (normalized === "ts" || normalized === "typescript") return "typescript";
+  if (normalized === "bash" || normalized === "shell" || normalized === "sh") return "shell";
+  if (normalized === "html") return "html";
+  if (normalized === "css") return "css";
+  if (normalized === "python" || normalized === "py") return "python";
+  return "plain text";
 }
 
 function splitText(text, size) {

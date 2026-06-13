@@ -76,6 +76,7 @@ export default async function WorkDetail({
   const meta = post.meta as unknown as ExtendedMeta;
   const coverAspect = normalizeAspectRatio(meta.coverAspect);
   const isVideoCover = meta.coverType === "video";
+  const imageCoverFit = meta.coverFit === "contain" ? "object-contain" : "object-cover";
   const sections = getWorkSections(post.content);
   const content = addSectionAnchors(post.content, sections);
   const projectFacts = [
@@ -85,17 +86,17 @@ export default async function WorkDetail({
   ].filter((item) => item.value);
 
   return (
-    <div className="notebook-shell py-10 sm:py-14">
+    <div className="notebook-shell py-8 sm:py-14">
       <div className="mx-auto max-w-7xl">
         <Link
           href="/work"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
+          className="inline-flex min-h-10 items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
         >
           <ArrowLeft className="size-4" aria-hidden />
           <span>回到作品</span>
         </Link>
 
-        <article className="relative mt-8 grid-cols-[minmax(0,1fr)_260px] gap-16 lg:grid">
+        <article className="relative mt-6 grid-cols-[minmax(0,1fr)_260px] gap-16 sm:mt-8 lg:grid">
           <div className="min-w-0">
             <header>
               <div className="flex flex-wrap gap-2">
@@ -107,17 +108,16 @@ export default async function WorkDetail({
               </div>
 
               <h1
-                className="mt-4 max-w-4xl font-semibold leading-[1.02] tracking-normal"
+                className="mt-4 max-w-4xl text-[2.35rem] font-semibold leading-[1.06] tracking-normal sm:text-[3.6rem] sm:leading-[1.03] lg:text-[5.4rem]"
                 style={{
                   fontFamily: 'Helvetica, "Courier New", Courier, monospace',
-                  fontSize: "clamp(2.6rem, 6vw, 5.4rem)",
                 }}
               >
                 {meta.title}
               </h1>
 
               {meta.summary && !meta.summaryIsGenerated && (
-                <p className="mt-5 max-w-3xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
+                <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-xl sm:leading-relaxed">
                   {meta.summary}
                 </p>
               )}
@@ -127,7 +127,7 @@ export default async function WorkDetail({
                   href={meta.externalLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-7 inline-flex h-11 items-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold text-background shadow-[0_12px_30px_-24px_rgba(0,0,0,0.9)] transition hover:-translate-y-0.5 hover:bg-[var(--red-pen)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--red-pen)]"
+                  className="mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold text-background shadow-[0_12px_30px_-24px_rgba(0,0,0,0.9)] transition hover:-translate-y-0.5 hover:bg-[var(--red-pen)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--red-pen)] sm:w-auto"
                   aria-label={`打开作品链接：${meta.title}`}
                 >
                   打开作品链接
@@ -137,10 +137,10 @@ export default async function WorkDetail({
             </header>
 
             {meta.cover && (
-              <figure className="my-10">
+              <figure className="my-8 sm:my-10">
                 {isVideoCover ? (
                   <div
-                    className="relative overflow-hidden rounded-lg bg-black shadow-[0_24px_70px_-48px_rgba(0,0,0,0.55)]"
+                    className="relative overflow-hidden rounded-md bg-black shadow-[0_18px_50px_-42px_rgba(0,0,0,0.5)] sm:rounded-lg sm:shadow-[0_24px_70px_-48px_rgba(0,0,0,0.55)]"
                     style={{ aspectRatio: coverAspect }}
                   >
                     <video
@@ -156,11 +156,16 @@ export default async function WorkDetail({
                     />
                   </div>
                 ) : (
-                  <WorkCoverImage
-                    src={meta.cover}
-                    alt={meta.title}
-                    className="block h-auto w-full rounded-lg shadow-[0_24px_70px_-48px_rgba(0,0,0,0.55)]"
-                  />
+                  <div
+                    className="relative overflow-hidden rounded-md bg-black shadow-[0_18px_50px_-42px_rgba(0,0,0,0.5)] sm:rounded-lg sm:shadow-[0_24px_70px_-48px_rgba(0,0,0,0.55)]"
+                    style={{ aspectRatio: coverAspect }}
+                  >
+                    <WorkCoverImage
+                      src={meta.cover}
+                      alt={meta.title}
+                      className={`h-full w-full ${imageCoverFit}`}
+                    />
+                  </div>
                 )}
               </figure>
             )}

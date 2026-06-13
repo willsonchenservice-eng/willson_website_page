@@ -93,7 +93,7 @@ export default async function Home() {
                   Blog
                 </h2>
                 <p className="mt-6 max-w-sm text-base leading-relaxed text-muted sm:text-lg">
-                  读到的、想到的、做项目时被刺到的。把这些碎片按时间收起来，留给之后的自己回看。
+                  读到的、想到的，以及做项目时冒出来的问题。把这些碎片按时间收起来，留给之后的自己回看。
                 </p>
                 <Link
                   href="/writing"

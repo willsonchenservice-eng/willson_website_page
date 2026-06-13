@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import gsap from "gsap";
@@ -94,6 +95,8 @@ export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
   const copyRef = useRef<HTMLDivElement>(null);
   const animatingRef = useRef(false);
   const pendingDirectionRef = useRef(0);
+  const swipeStartRef = useRef<{ x: number; y: number; pointerId: number } | null>(null);
+  const suppressClickRef = useRef(false);
 
   const active = visibleWorks[wrapIndex(activeIndex, visibleWorks.length)];
   const previous = visibleWorks[wrapIndex(activeIndex - 1, visibleWorks.length)];
@@ -108,20 +111,18 @@ export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
     const direction = pendingDirectionRef.current;
     if (!direction) {
       animatingRef.current = false;
-      gsap.set(center, { xPercent: -50, yPercent: -50, x: 0, scale: 1, opacity: 1 });
-      gsap.set(sides, { yPercent: -50, scale: 0.94, opacity: 1 });
+      gsap.set(center, { "--work-x": "0px", "--work-scale": 1, opacity: 1 });
+      gsap.set(sides, { "--work-scale": 0.94, opacity: 1 });
       gsap.set(copyRef.current, { y: 0, opacity: 1 });
       return;
     }
 
     gsap.set(center, {
-      xPercent: -50,
-      yPercent: -50,
-      x: direction * 52,
-      scale: 1.045,
+      "--work-x": `${direction * 52}px`,
+      "--work-scale": 1.045,
       opacity: 1,
     });
-    gsap.set(sides, { yPercent: -50, scale: 0.9, opacity: 1 });
+    gsap.set(sides, { "--work-scale": 0.9, opacity: 1 });
     gsap.set(copyRef.current, { y: 18, opacity: 0 });
 
     const tl = gsap.timeline({
@@ -134,14 +135,14 @@ export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
     });
 
     tl.to(center, {
-      x: 0,
-      scale: 1,
+      "--work-x": "0px",
+      "--work-scale": 1,
       duration: 0.5,
     })
       .to(
         sides,
         {
-          scale: 0.94,
+          "--work-scale": 0.94,
           duration: 0.48,
           stagger: 0.035,
         },
@@ -185,14 +186,14 @@ export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
         onComplete: () => setActiveIndex((index) => index + direction),
       })
       .to(center, {
-        x: direction * -52,
-        scale: 0.92,
+        "--work-x": `${direction * -52}px`,
+        "--work-scale": 0.92,
         duration: 0.26,
       })
       .to(
         outgoingSide,
         {
-          scale: 1.05,
+          "--work-scale": 1.05,
           duration: 0.26,
         },
         "<"
@@ -200,7 +201,7 @@ export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
       .to(
         restingSide,
         {
-          scale: 0.88,
+          "--work-scale": 0.88,
           duration: 0.26,
         },
         "<"
@@ -216,15 +217,51 @@ export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
       );
   }
 
+  function handlePointerDown(event: PointerEvent<HTMLAnchorElement>) {
+    if (!hasSiblings) return;
+
+    swipeStartRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      pointerId: event.pointerId,
+    };
+  }
+
+  function handlePointerUp(event: PointerEvent<HTMLAnchorElement>) {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (!start || start.pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - start.x;
+    const deltaY = event.clientY - start.y;
+    const horizontalDistance = Math.abs(deltaX);
+    const verticalDistance = Math.abs(deltaY);
+    const minSwipeDistance = 48;
+
+    if (horizontalDistance < minSwipeDistance || horizontalDistance < verticalDistance * 1.25) {
+      return;
+    }
+
+    suppressClickRef.current = true;
+    window.setTimeout(() => {
+      suppressClickRef.current = false;
+    }, 250);
+    changeWork(deltaX < 0 ? 1 : -1);
+  }
+
+  function handlePointerCancel() {
+    swipeStartRef.current = null;
+  }
+
   return (
-    <section className="relative mt-10 overflow-hidden pb-14 sm:pb-18">
+    <section className="relative mt-10 overflow-hidden pb-14 max-md:overflow-visible sm:pb-18">
       <div className="relative mx-auto h-[360px] max-w-[1180px] sm:h-[500px] lg:h-[590px]">
         {hasSiblings && (
           <>
             <div
               ref={leftRef}
               aria-hidden
-              className={`pointer-events-none absolute -left-10 top-1/2 hidden aspect-[4434/2986] w-[min(30vw,360px)] -translate-y-1/2 overflow-hidden rounded-[24px] shadow-[0_18px_50px_-34px_rgba(0,0,0,0.35)] md:block lg:-left-20 ${showcaseFrameBackground(previous)}`}
+              className={`work-showcase-side-card work-showcase-side-left pointer-events-none absolute -left-10 top-1/2 hidden aspect-[4434/2986] w-[min(30vw,360px)] overflow-hidden rounded-[24px] shadow-[0_18px_50px_-34px_rgba(0,0,0,0.35)] max-md:block max-md:aspect-[1400/1051] max-md:w-[46vw] max-md:rounded-[16px] md:block lg:-left-20 ${showcaseFrameBackground(previous)}`}
             >
               <ShowcaseMedia
                 work={previous}
@@ -235,7 +272,7 @@ export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
             <div
               ref={rightRef}
               aria-hidden
-              className={`pointer-events-none absolute -right-10 top-1/2 hidden aspect-[4434/2986] w-[min(30vw,360px)] -translate-y-1/2 overflow-hidden rounded-[24px] shadow-[0_18px_50px_-34px_rgba(0,0,0,0.35)] md:block lg:-right-20 ${showcaseFrameBackground(next)}`}
+              className={`work-showcase-side-card work-showcase-side-right pointer-events-none absolute -right-10 top-1/2 hidden aspect-[4434/2986] w-[min(30vw,360px)] overflow-hidden rounded-[24px] shadow-[0_18px_50px_-34px_rgba(0,0,0,0.35)] max-md:block max-md:aspect-[1400/1051] max-md:w-[46vw] max-md:rounded-[16px] md:block lg:-right-20 ${showcaseFrameBackground(next)}`}
             >
               <ShowcaseMedia
                 work={next}
@@ -271,7 +308,15 @@ export default function WorkShowcase({ works }: { works: WorkMeta[] }) {
           ref={centerRef}
           href={`/work/${active.slug}`}
           data-cursor-text="VIEW"
-          className={`group absolute left-1/2 top-1/2 z-20 block aspect-[4434/2986] w-[min(90vw,760px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[28px] shadow-[0_24px_70px_-42px_rgba(0,0,0,0.55)] ${showcaseFrameBackground(active)}`}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          onClick={(event) => {
+            if (!suppressClickRef.current) return;
+            event.preventDefault();
+            suppressClickRef.current = false;
+          }}
+          className={`work-showcase-center-card group absolute left-1/2 top-1/2 z-20 block aspect-[4434/2986] w-[min(90vw,760px)] touch-pan-y overflow-hidden rounded-[28px] shadow-[0_24px_70px_-42px_rgba(0,0,0,0.55)] max-md:aspect-[1400/1051] max-md:w-[min(82vw,760px)] max-md:rounded-[16px] ${showcaseFrameBackground(active)}`}
         >
           <ShowcaseMedia work={active} priority />
         </Link>

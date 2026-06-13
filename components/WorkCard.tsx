@@ -6,14 +6,6 @@ import type { WorkMeta } from "@/lib/content";
 import { ArrowUpRight } from "lucide-react";
 import WorkCoverImage from "@/components/WorkCoverImage";
 
-function normalizeAspectRatio(value?: string) {
-  if (!value) return "16 / 10";
-  const normalized = value.trim().replace(":", " / ");
-  if (/^\d+(\.\d+)?\s*\/\s*\d+(\.\d+)?$/.test(normalized)) return normalized;
-  if (/^\d+(\.\d+)?$/.test(normalized)) return normalized;
-  return "16 / 10";
-}
-
 export default function WorkCard({
   work,
   index = 0,
@@ -24,7 +16,7 @@ export default function WorkCard({
   flip?: boolean;
 }) {
   const cover = work.cover;
-  const coverAspect = normalizeAspectRatio(work.coverAspect);
+  const coverAspect = "16 / 10";
   const isVideo = work.coverType === "video";
   const imageFit = work.coverFit === "contain" ? "object-contain" : "object-cover";
   const mediaFit = isVideo ? "object-contain" : imageFit;
