@@ -1,11 +1,5 @@
 import { MDXRemote } from "next-mdx-remote/rsc";
-import Bilibili from "@/components/mdx/Bilibili";
-import AutoLink from "@/components/mdx/AutoLink";
-
-const mdxComponents = {
-  Bilibili,
-  a: AutoLink,
-};
+import { mdxComponents } from "@/components/mdx/components";
 
 export default function MdxBody({
   source,

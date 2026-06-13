@@ -3,13 +3,7 @@ import type { WritingFull } from "@/lib/content";
 import Stamp from "@/components/notebook/Stamp";
 import WashiTape from "@/components/notebook/WashiTape";
 import PageNumber from "@/components/notebook/PageNumber";
-import Bilibili from "@/components/mdx/Bilibili";
-import AutoLink from "@/components/mdx/AutoLink";
-
-const mdxComponents = {
-  Bilibili,
-  a: AutoLink,
-};
+import { mdxComponents } from "@/components/mdx/components";
 
 function parseDate(iso: string) {
   const d = new Date(iso);

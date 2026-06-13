@@ -40,6 +40,13 @@ function extractSummary(markdown: string, maxLength: number = 100): string {
   return text;
 }
 
+function normalizeMarkdownStrongDelimiters(markdown: string) {
+  return markdown
+    .replace(/\*\*\s*\*\*/g, "")
+    .replace(/\*\*([^*\n]*?\S)\s+\*\*(?=\S)/g, "**$1** ")
+    .replace(/\*\*([^*\n]*?\S)\s+\*\*/g, "**$1**");
+}
+
 export type Collection = "work" | "writing";
 
 export interface WorkMeta {
@@ -137,12 +144,15 @@ function readLocalWorkFull(): WorkFull[] {
 
 function readLocalWritingFull(): WritingFull[] {
   return readCollection("writing")
-    .map(({ slug, data, content }) => ({
-      slug,
-      ...(data as Omit<WritingMeta, "slug">),
-      summary: data.summary || extractSummary(content),
-      content,
-    }))
+    .map(({ slug, data, content }) => {
+      const normalizedContent = normalizeMarkdownStrongDelimiters(content);
+      return {
+        slug,
+        ...(data as Omit<WritingMeta, "slug">),
+        summary: data.summary || extractSummary(normalizedContent),
+        content: normalizedContent,
+      };
+    })
     .filter((w) => !w.draft)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 }

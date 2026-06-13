@@ -4,6 +4,7 @@ const { createJiti } = require("jiti");
 const jiti = createJiti(process.cwd() + "/");
 const {
   SHOWCASE_FRAME_ASPECT,
+  SHOWCASE_MOBILE_FRAME_ASPECT,
   getShowcaseImageFit,
   getShowcaseImageFitClass,
   isShowcaseVideoSource,
@@ -19,6 +20,12 @@ assert.strictEqual(
   getShowcaseImageFit(900, 1600, "/wall/portrait.png"),
   "cover-top",
   "covers taller than the fixed showcase frame should fill the frame and crop from the top"
+);
+
+assert.strictEqual(
+  getShowcaseImageFit(4430, 3328, "/wall/feishu-cover.png"),
+  "contain-mobile-cover-top-desktop",
+  "covers matching the mobile frame should not jump into top crop after loading on mobile"
 );
 
 assert.strictEqual(
@@ -49,6 +56,18 @@ assert.strictEqual(
   getShowcaseImageFitClass("cover-top"),
   "object-cover object-top",
   "portrait covers should use top-aligned cover classes"
+);
+
+assert.strictEqual(
+  getShowcaseImageFitClass("contain-mobile-cover-top-desktop"),
+  "object-contain md:object-cover md:object-top",
+  "near-mobile-ratio covers should stay complete on mobile and crop only on desktop"
+);
+
+assert.strictEqual(
+  SHOWCASE_MOBILE_FRAME_ASPECT.toFixed(3),
+  "1.332",
+  "mobile showcase frames should match the real cover asset aspect ratio"
 );
 
 assert.strictEqual(

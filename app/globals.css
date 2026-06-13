@@ -162,6 +162,27 @@ body::before {
   .notebook-shell { padding-inline: 2.5rem; }
 }
 
+.work-showcase-center-card {
+  transform: translate(calc(-50% + var(--work-x, 0px)), -50%)
+    scale(var(--work-scale, 1));
+  transform-origin: center;
+}
+
+.work-showcase-side-card {
+  transform: translateY(-50%) scale(var(--work-scale, 0.94));
+  transform-origin: center;
+}
+
+@media (max-width: 767px) {
+  .work-showcase-side-left {
+    left: calc(50% - 87vw - 12px);
+  }
+
+  .work-showcase-side-right {
+    right: calc(50% - 87vw - 12px);
+  }
+}
+
 /* photo wall responsive scaling — kept */
 .photo-wall {
   --scale: 1;
@@ -224,6 +245,15 @@ a {
   font-size: 1.0625rem;
   line-height: 1.8;
 }
+.prose-mdx h1 {
+  font-family: Helvetica, "Courier New", Courier, monospace;
+  font-size: clamp(1.9rem, 4vw, 3.1rem);
+  font-weight: 600;
+  line-height: 1.08;
+  margin-top: 3.5rem;
+  margin-bottom: 1rem;
+  color: var(--foreground);
+}
 .prose-mdx h2 {
   font-family: Helvetica, "Courier New", Courier, monospace;
   font-size: 1.5rem;
@@ -237,6 +267,15 @@ a {
   font-weight: 500;
   margin-top: 2rem;
   margin-bottom: 0.5rem;
+}
+.prose-mdx h4,
+.prose-mdx h5,
+.prose-mdx h6 {
+  color: var(--foreground);
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 1.4rem;
+  margin-bottom: 0.35rem;
 }
 .prose-mdx p { margin: 1rem 0; }
 .prose-mdx a {
@@ -266,6 +305,15 @@ a {
 
 .prose-journal { font-size: 1rem; line-height: 1.7; }
 .prose-journal p { margin: 0.85rem 0; }
+.prose-journal h1 {
+  color: var(--foreground);
+  font-family: Helvetica, "Courier New", Courier, monospace;
+  font-size: clamp(1.65rem, 4vw, 2.35rem);
+  font-weight: 600;
+  line-height: 1.12;
+  margin-top: 2.4rem;
+  margin-bottom: 0.75rem;
+}
 .prose-journal h2 {
   font-family: Helvetica, "Courier New", Courier, monospace;
   font-size: 1.25rem;
@@ -278,6 +326,15 @@ a {
   font-weight: 500;
   margin-top: 1.4rem;
   margin-bottom: 0.4rem;
+}
+.prose-journal h4,
+.prose-journal h5,
+.prose-journal h6 {
+  color: var(--foreground);
+  font-size: 0.98rem;
+  font-weight: 600;
+  margin-top: 1.15rem;
+  margin-bottom: 0.3rem;
 }
 .prose-journal a {
   color: var(--foreground);
@@ -323,13 +380,31 @@ a {
 }
 .prose-journal hr { border: none; border-top: 1px solid var(--line); margin: 2rem 0; }
 
+.blog-list-sections > [data-writing-article] {
+  border-top: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
+}
+
+.blog-list-sections > [data-writing-article]:first-child {
+  border-top: 0;
+}
+
 .blog-list-body {
   max-width: 900px;
   font-size: 16px;
   line-height: 1.75;
   color: var(--muted-foreground);
+  overflow-wrap: anywhere;
 }
 .blog-list-body p { margin: 0.9rem 0; }
+.blog-list-body h1 {
+  color: var(--foreground);
+  font-family: Helvetica, "Courier New", Courier, monospace;
+  font-size: clamp(1.55rem, 4vw, 2.2rem);
+  font-weight: 650;
+  line-height: 1.15;
+  margin-top: 2.5rem;
+  margin-bottom: 0.75rem;
+}
 .blog-list-body h2 {
   color: var(--foreground);
   font-family: Helvetica, "Courier New", Courier, monospace;
@@ -345,6 +420,15 @@ a {
   font-weight: 600;
   margin-top: 1.5rem;
   margin-bottom: 0.45rem;
+}
+.blog-list-body h4,
+.blog-list-body h5,
+.blog-list-body h6 {
+  color: var(--foreground);
+  font-size: 0.98rem;
+  font-weight: 650;
+  margin-top: 1.15rem;
+  margin-bottom: 0.3rem;
 }
 .blog-list-body a {
   color: var(--foreground);
@@ -393,8 +477,18 @@ a {
   max-width: 850px;
   font-size: 1.0625rem;
   line-height: 1.8;
+  overflow-wrap: anywhere;
 }
 .prose-work-detail p { margin: 1rem 0; }
+.prose-work-detail h1 {
+  color: var(--foreground);
+  font-family: Helvetica, "Courier New", Courier, monospace;
+  font-size: clamp(2.1rem, 4vw, 3.3rem);
+  font-weight: 650;
+  line-height: 1.08;
+  margin-top: 4.5rem;
+  margin-bottom: 1.15rem;
+}
 .prose-work-detail h2 {
   font-family: Helvetica, "Courier New", Courier, monospace;
   font-size: clamp(1.8rem, 3vw, 2.6rem);
@@ -408,6 +502,15 @@ a {
   font-weight: 600;
   margin-top: 2rem;
   margin-bottom: 0.55rem;
+}
+.prose-work-detail h4,
+.prose-work-detail h5,
+.prose-work-detail h6 {
+  color: var(--foreground);
+  font-size: 1rem;
+  font-weight: 650;
+  margin-top: 1.45rem;
+  margin-bottom: 0.35rem;
 }
 .prose-work-detail a {
   color: var(--foreground);
@@ -453,6 +556,225 @@ a {
   border-radius: 3px;
   font-size: 0.9em;
   padding: 0.1em 0.35em;
+}
+
+.blog-list-body pre,
+.prose-work-detail pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.mdx-code-block {
+  max-width: 100%;
+  margin: 1.45rem 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: #0b0f14;
+  color: #e6edf3;
+  box-shadow: 0 18px 40px -32px rgba(0, 0, 0, 0.65);
+}
+
+.mdx-code-block__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 34px;
+  padding: 0 0.95rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(230, 237, 243, 0.68);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mdx-code-block__copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(230, 237, 243, 0.86);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0 0.55rem;
+  text-transform: none;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.mdx-code-block__copy:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.mdx-code-block__copy:focus-visible {
+  outline: 2px solid rgba(230, 237, 243, 0.8);
+  outline-offset: 2px;
+}
+
+.mdx-code-block__pre {
+  max-width: 100%;
+  max-height: calc((1.58em * 12) + 1.7rem);
+  margin: 0;
+  overflow: auto;
+  padding: 1rem 1.05rem;
+  background: transparent;
+  color: inherit;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.88rem;
+  line-height: 1.58;
+  tab-size: 2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mdx-code-block__pre code,
+.mdx-code-block .mdx-inline-code {
+  display: inline;
+  min-width: max-content;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.mdx-inline-code {
+  background: var(--line);
+  border-radius: 4px;
+  color: var(--foreground);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+}
+
+@media (max-width: 639px) {
+  .blog-list-body {
+    max-width: 100%;
+    font-size: 0.975rem;
+    line-height: 1.72;
+  }
+
+  .blog-list-body p {
+    margin: 0.8rem 0;
+  }
+
+  .blog-list-body h1 {
+    font-size: 1.38rem;
+    line-height: 1.2;
+    margin-top: 2rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .blog-list-body h2 {
+    font-size: 1.2rem;
+    line-height: 1.28;
+    margin-top: 1.8rem;
+    margin-bottom: 0.55rem;
+  }
+
+  .blog-list-body h3 {
+    font-size: 1.02rem;
+    line-height: 1.35;
+    margin-top: 1.25rem;
+  }
+
+  .blog-list-body ul,
+  .blog-list-body ol {
+    padding-left: 1.2rem;
+  }
+
+  .blog-list-body blockquote {
+    margin: 1rem 0;
+    padding-left: 0.85rem;
+  }
+
+  .blog-list-body img {
+    border-radius: 6px;
+    margin: 1.2rem 0;
+  }
+
+  .prose-work-detail {
+    max-width: 100%;
+    font-size: 1rem;
+    line-height: 1.72;
+  }
+
+  .prose-work-detail p {
+    margin: 0.9rem 0;
+  }
+
+  .prose-work-detail h1 {
+    font-size: 1.85rem;
+    line-height: 1.14;
+    margin-top: 3rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .prose-work-detail h2 {
+    font-size: 1.55rem;
+    line-height: 1.2;
+    margin-top: 2.6rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .prose-work-detail h3 {
+    font-size: 1.05rem;
+    line-height: 1.35;
+    margin-top: 1.6rem;
+  }
+
+  .prose-work-detail ul,
+  .prose-work-detail ol {
+    padding-left: 1.2rem;
+  }
+
+  .prose-work-detail blockquote {
+    margin: 1.15rem 0;
+    padding-left: 0.85rem;
+  }
+
+  .prose-work-detail img {
+    border-radius: 6px;
+    margin: 1.4rem 0;
+  }
+
+  .prose-work-detail hr {
+    margin: 2rem 0;
+  }
+
+  .mdx-code-block {
+    margin: 1.15rem 0;
+    border-radius: 8px;
+  }
+
+  .mdx-code-block__header {
+    min-height: 30px;
+    padding: 0 0.8rem;
+    font-size: 0.66rem;
+  }
+
+  .mdx-code-block__pre {
+    max-height: calc((1.55em * 12) + 1.5rem);
+    padding: 0.85rem;
+    font-size: 0.8rem;
+    line-height: 1.55;
+  }
 }
 
 .dark {
