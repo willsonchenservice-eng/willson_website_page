@@ -19,7 +19,6 @@ try {
 const requiredEntries = {
   framework: "nextjs",
   buildCommand: "npm run build",
-  outputDirectory: "out",
   trailingSlash: true,
 };
 
@@ -32,6 +31,11 @@ for (const [key, expected] of Object.entries(requiredEntries)) {
 
 if ("env" in config || "build" in config) {
   console.error("FAIL: vercel.json must not contain inline env/build secrets.");
+  process.exit(1);
+}
+
+if ("outputDirectory" in config) {
+  console.error("FAIL: Next.js projects on Vercel must not override outputDirectory; Vercel needs the default .next metadata.");
   process.exit(1);
 }
 
