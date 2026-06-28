@@ -1,0 +1,50 @@
+name: Deploy to Alibaba Cloud OSS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-oss
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build and sync static export
+    runs-on: ubuntu-latest
+    env:
+      ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+      ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+      ALIYUN_OSS_BUCKET: ${{ secrets.ALIYUN_OSS_BUCKET }}
+      ALIYUN_OSS_ENDPOINT: ${{ secrets.ALIYUN_OSS_ENDPOINT }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build static site
+        run: npm run build
+
+      - name: Verify static export
+        run: test -f out/index.html
+
+      - name: Install ossutil
+        run: curl -fsSL https://gosspublic.alicdn.com/ossutil/install.sh | sudo bash
+
+      - name: Sync static export to OSS
+        run: |
+          ossutil sync out/ "oss://${ALIYUN_OSS_BUCKET}/" \
+            -e "${ALIYUN_OSS_ENDPOINT}" \
+            -i "${ALIYUN_ACCESS_KEY_ID}" \
+            -k "${ALIYUN_ACCESS_KEY_SECRET}" \
+            -f
