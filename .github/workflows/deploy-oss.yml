@@ -20,6 +20,9 @@ jobs:
       ALIYUN_OSS_BUCKET: ${{ secrets.ALIYUN_OSS_BUCKET }}
       ALIYUN_OSS_ENDPOINT: ${{ secrets.ALIYUN_OSS_ENDPOINT }}
       ALIYUN_CDN_DOMAIN: me.remeetapp.com
+      NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+      NOTION_WORK_DATABASE_ID: ${{ secrets.NOTION_WORK_DATABASE_ID }}
+      NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,6 +35,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify Notion content secrets
+        run: |
+          : "${NOTION_API_KEY:?Missing GitHub secret NOTION_API_KEY}"
+          : "${NOTION_WORK_DATABASE_ID:?Missing GitHub secret NOTION_WORK_DATABASE_ID}"
+          : "${NOTION_DATABASE_ID:?Missing GitHub secret NOTION_DATABASE_ID}"
 
       - name: Build static site
         run: npm run build
