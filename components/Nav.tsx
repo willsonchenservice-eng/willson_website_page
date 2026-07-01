@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { site } from "@/lib/site";
 
 const links = [
@@ -13,17 +14,18 @@ export default function Nav() {
       <div className="notebook-shell pt-8 pb-3 flex items-center justify-between gap-4">
         <Link
           href="/"
-          className="hover:opacity-70 transition inline-block leading-none"
-          style={{
-            fontFamily: "var(--font-hand)",
-            fontSize: "1.9rem",
-            transform: "rotate(-1.5deg)",
-            letterSpacing: "-0.01em",
-          }}
+          className="hover:opacity-70 transition inline-flex items-center leading-none"
           aria-label={`${site.name} — Home`}
         >
-          {site.name}
-          <span style={{ color: "var(--red-pen)" }}>.</span>
+          {/* Signature logo remains wide for the header; the square browser tab icon is generated separately. */}
+          <Image
+            src="/brand/willson-chen-logo.png"
+            alt={site.name}
+            width={322}
+            height={86}
+            priority
+            className="h-[34px] w-auto sm:h-[42px]"
+          />
         </Link>
         <nav className="flex items-baseline gap-5 sm:gap-7 text-sm text-muted">
           {links.map((l) => (

@@ -19,6 +19,12 @@ export const metadata: Metadata = {
     template: `%s · ${site.name}`,
   },
   description: site.tagline,
+  icons: {
+    // Browsers render tab icons in square slots, so this uses the centered square derivative of the wide signature.
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({
