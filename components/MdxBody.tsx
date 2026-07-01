@@ -1,5 +1,6 @@
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { mdxComponents } from "@/components/mdx/components";
+import { normalizeMdxSource } from "@/lib/mdx";
 
 export default function MdxBody({
   source,
@@ -10,7 +11,7 @@ export default function MdxBody({
 }) {
   return (
     <div className={className}>
-      <MDXRemote source={source} components={mdxComponents} />
+      <MDXRemote source={normalizeMdxSource(source)} components={mdxComponents} />
     </div>
   );
 }

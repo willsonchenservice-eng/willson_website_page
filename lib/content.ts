@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
 import {
   fetchNotionWriting,
   fetchNotionWritingPreview,
@@ -40,15 +39,6 @@ function extractSummary(markdown: string, maxLength: number = 100): string {
   return text;
 }
 
-function normalizeMarkdownStrongDelimiters(markdown: string) {
-  return markdown
-    .replace(/\*\*\s*\*\*/g, "")
-    .replace(/\*\*([^*\n]*?\S)\s+\*\*(?=\S)/g, "**$1** ")
-    .replace(/\*\*([^*\n]*?\S)\s+\*\*/g, "**$1**");
-}
-
-export type Collection = "work" | "writing";
-
 export interface WorkMeta {
   slug: string;
   title: string;
@@ -82,33 +72,10 @@ export interface WritingFull extends WritingMeta {
   content: string;
 }
 
-const ROOT = path.join(process.cwd(), "content");
-
 function debugLog(...args: unknown[]) {
   if (process.env.DEBUG_NOTION === "1") {
     console.info(...args);
   }
-}
-
-function readCollection(name: Collection) {
-  const dir = path.join(ROOT, name);
-  if (!fs.existsSync(dir)) return [];
-  return fs
-    .readdirSync(dir)
-    .filter((f) => f.endsWith(".mdx"))
-    .map((f) => {
-      const slug = f.replace(/\.mdx$/, "");
-      const raw = fs.readFileSync(path.join(dir, f), "utf8");
-      const { data, content } = matter(raw);
-      return { slug, data, content };
-    });
-}
-
-function mergeBySlug<T extends { slug: string }>(localItems: T[], remoteItems: T[]) {
-  const bySlug = new Map<string, T>();
-  for (const item of localItems) bySlug.set(item.slug, item);
-  for (const item of remoteItems) bySlug.set(item.slug, item);
-  return [...bySlug.values()];
 }
 
 const coverPathAliases: Record<string, string> = {
@@ -131,56 +98,44 @@ function normalizeWorkCover<T extends WorkMeta>(work: T): T {
   };
 }
 
-function readLocalWorkFull(): WorkFull[] {
-  return readCollection("work")
-    .map(({ slug, data, content }) => ({
-      slug,
-      ...(data as Omit<WorkMeta, "slug">),
-      content,
-    }))
-    .filter((w) => !w.draft)
-    .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
-}
+function assertUniqueSlugs(items: Array<{ slug: string; title: string }>, collectionName: "Work" | "Writing") {
+  const seen = new Map<string, string>();
 
-function readLocalWritingFull(): WritingFull[] {
-  return readCollection("writing")
-    .map(({ slug, data, content }) => {
-      const normalizedContent = normalizeMarkdownStrongDelimiters(content);
-      return {
-        slug,
-        ...(data as Omit<WritingMeta, "slug">),
-        summary: data.summary || extractSummary(normalizedContent),
-        content: normalizedContent,
-      };
-    })
-    .filter((w) => !w.draft)
-    .sort((a, b) => (a.date < b.date ? 1 : -1));
+  for (const item of items) {
+    const existing = seen.get(item.slug);
+    if (existing) {
+      throw new Error(
+        `Duplicate Notion ${collectionName} slug "${item.slug}" for "${existing}" and "${item.title}". Slugs must be unique because they are used as static route params.`
+      );
+    }
+    seen.set(item.slug, item.title);
+  }
 }
 
 export async function getAllWorkFull(): Promise<WorkFull[]> {
-  const localWorks = readLocalWorkFull().map(normalizeWorkCover);
-
   debugLog("getAllWorkFull: Trying Notion...");
   const notionWorks = await fetchNotionWork();
   if (notionWorks && notionWorks.length > 0) {
-    debugLog("getAllWorkFull: Merging Notion data,", notionWorks.length, "works");
-    return mergeBySlug(localWorks, notionWorks)
+    const works = notionWorks as WorkFull[];
+    assertUniqueSlugs(works, "Work");
+    debugLog("getAllWorkFull: Using Notion data,", works.length, "works");
+    return works
       .map(normalizeWorkCover)
       .filter((w: WorkFull) => !w.draft)
       .sort((a: WorkFull, b: WorkFull) => (a.order ?? 99) - (b.order ?? 99));
   }
-  debugLog("getAllWorkFull: Falling back to local MDX");
 
-  return localWorks;
+  throw new Error("Notion Work content is required but no work entries were returned.");
 }
 
 export async function getAllWork(): Promise<WorkMeta[]> {
-  const localWorks = readLocalWorkFull().map(normalizeWorkCover);
   const notionWorks = await fetchNotionWork(false, false);
-  const allWorks = notionWorks && notionWorks.length > 0
-    ? mergeBySlug(localWorks, (notionWorks as WorkMeta[]).map(normalizeWorkCover))
-    : localWorks;
-  return allWorks.sort((a, b) => (a.order ?? 999) - (b.order ?? 999)).map(w => ({
+  if (!notionWorks || notionWorks.length === 0) {
+    throw new Error("Notion Work content is required but no work entries were returned.");
+  }
+  const allWorks = (notionWorks as WorkFull[]).map(normalizeWorkCover);
+  assertUniqueSlugs(allWorks, "Work");
+  return allWorks.filter((w) => !w.draft).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)).map(w => ({
     slug: w.slug,
     title: w.title,
     client: w.client,
@@ -216,14 +171,15 @@ function safeDecodeURIComponent(value: string) {
 }
 
 export async function getAllWriting(): Promise<WritingMeta[]> {
-  const localWritings = readLocalWritingFull();
   const notionWritings = await fetchNotionWritingPreview();
-  if (notionWritings && notionWritings.length > 0) {
-    return mergeBySlug(localWritings, notionWritings as WritingMeta[])
-      .filter((w) => !w.draft)
-      .sort((a, b) => (a.date < b.date ? 1 : -1));
+  if (!notionWritings || notionWritings.length === 0) {
+    throw new Error("Notion Writing content is required but no writing entries were returned.");
   }
-  return localWritings;
+  const writings = notionWritings as WritingFull[];
+  assertUniqueSlugs(writings, "Writing");
+  return writings
+    .filter((w) => !w.draft)
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
 export async function getWriting(slug: string) {
@@ -234,21 +190,19 @@ export async function getWriting(slug: string) {
 }
 
 export async function getAllWritingFull(): Promise<WritingFull[]> {
-  const localWritings = readLocalWritingFull();
-
-  // First try to fetch from Notion
   debugLog("getAllWritingFull: Trying Notion...");
   const notionWritings = await fetchNotionWriting();
   if (notionWritings && notionWritings.length > 0) {
-    debugLog("getAllWritingFull: Merging Notion data,", notionWritings.length, "posts");
-    debugLog("getAllWritingFull: Posts:", notionWritings.map((p: WritingFull) => ({ title: p.title, slug: p.slug })));
-    return mergeBySlug(localWritings, notionWritings)
+    const writings = notionWritings as WritingFull[];
+    assertUniqueSlugs(writings, "Writing");
+    debugLog("getAllWritingFull: Using Notion data,", writings.length, "posts");
+    debugLog("getAllWritingFull: Posts:", writings.map((p: WritingFull) => ({ title: p.title, slug: p.slug })));
+    return writings
       .filter((w) => !w.draft)
       .sort((a, b) => (a.date < b.date ? 1 : -1));
   }
-  debugLog("getAllWritingFull: Falling back to local MDX");
 
-  return localWritings;
+  throw new Error("Notion Writing content is required but no writing entries were returned.");
 }
 
 export type Photo = {

@@ -358,7 +358,7 @@ async function downloadImage(
 /**
  * 处理 Notion 图片：下载到本地并替换链接
  */
-async function processNotionImages(markdown: string, force: boolean = false): Promise<string> {
+async function processNotionImages(markdown: string, pageId: string, force: boolean = false): Promise<string> {
   // 匹配 ![]() 格式的图片
   const imgRegex = /!\[([^\]]*)\]\(([^\)]+)\)/g;
   let match;
@@ -377,10 +377,10 @@ async function processNotionImages(markdown: string, force: boolean = false): Pr
         const filename = imageFilenameFromUrl(url, index);
         const localUrl = await downloadImage(
           url,
-          notionFileCacheId(`markdown-${index}`, index, filename, url),
+          notionFileCacheId(pageId, index, filename, url),
           force,
           filename,
-          legacyNotionFileCacheId(`markdown-${index}`, index, filename),
+          legacyNotionFileCacheId(pageId, index, filename),
           isWechatAsset ? wechatImageHeaders() : undefined
         );
         replacements.push({ original, localUrl });
@@ -521,7 +521,7 @@ function normalizeBasicMarkdown(markdown: string) {
 export async function fetchNotionWritingPreview(force: boolean = false) {
   const databaseId = process.env.NOTION_DATABASE_ID;
   if (!databaseId || !process.env.NOTION_API_KEY) {
-    console.warn("Missing Notion environment variables. Falling back to local MDX.");
+    console.warn("Missing Notion writing environment variables. Returning no writing entries.");
     return null;
   }
 
@@ -572,7 +572,7 @@ export async function fetchNotionWritingPreview(force: boolean = false) {
     cache.time = now;
     return writings;
   } catch (error) {
-    console.warn(`Notion writing preview unavailable. Falling back to local MDX. ${formatNotionError(error)}`);
+    console.warn(`Notion writing preview unavailable. Returning no writing entries. ${formatNotionError(error)}`);
     return null;
   }
 }
@@ -580,7 +580,7 @@ export async function fetchNotionWritingPreview(force: boolean = false) {
 export async function fetchNotionWriting(force: boolean = false) {
   const databaseId = process.env.NOTION_DATABASE_ID;
   if (!databaseId || !process.env.NOTION_API_KEY) {
-    console.warn("Missing Notion environment variables. Falling back to local MDX.");
+    console.warn("Missing Notion writing environment variables. Returning no writing entries.");
     return null;
   }
 
@@ -628,7 +628,7 @@ export async function fetchNotionWriting(force: boolean = false) {
           const mdResponse = await notion.pages.retrieveMarkdown({ page_id: page.id });
           let content = propPlainText(contentProp) || mdResponse.markdown || "";
           content = normalizeBasicMarkdown(content);
-          content = await processNotionImages(content, force);
+          content = await processNotionImages(content, page.id, force);
           content = convertBilibiliLinks(content);
 
           const summaryFromProp = summaryProp?.rich_text?.[0]?.plain_text;
@@ -652,7 +652,7 @@ export async function fetchNotionWriting(force: boolean = false) {
 
     return writings;
   } catch (error) {
-    console.warn(`Notion writing unavailable. Falling back to local MDX. ${formatNotionError(error)}`);
+    console.warn(`Notion writing unavailable. Returning no writing entries. ${formatNotionError(error)}`);
     return null;
   }
 }
@@ -902,7 +902,7 @@ export async function fetchNotionSocial(force: boolean = false) {
 export async function fetchNotionWork(force: boolean = false, includeContent: boolean = true) {
   const databaseId = process.env.NOTION_WORK_DATABASE_ID;
   if (!databaseId || !process.env.NOTION_API_KEY) {
-    console.warn("Missing Notion Work database env vars. Falling back to local MDX.");
+    console.warn("Missing Notion Work database env vars. Returning no work entries.");
     return null;
   }
 
@@ -983,6 +983,7 @@ export async function fetchNotionWork(force: boolean = false, includeContent: bo
           if (includeContent) {
             const mdResponse = await notion.pages.retrieveMarkdown({ page_id: page.id });
             content = normalizeWorkMarkdown(mdResponse.markdown || "");
+            content = await processNotionImages(content, page.id, force);
           }
 
           return {
@@ -1005,15 +1006,15 @@ export async function fetchNotionWork(force: boolean = false, includeContent: bo
         })
     );
 
-    const uniqueWorks = ensureUniqueWorkSlugs(works).sort(
+    const sortedWorks = works.sort(
       (a, b) => (a.order ?? 999) - (b.order ?? 999)
     );
 
-    cache[cacheKey] = uniqueWorks;
+    cache[cacheKey] = sortedWorks;
     cache.time = now;
-    return uniqueWorks;
+    return sortedWorks;
   } catch (error) {
-    console.warn(`Notion work unavailable. Falling back to local MDX. ${formatNotionError(error)}`);
+    console.warn(`Notion work unavailable. Returning no work entries. ${formatNotionError(error)}`);
     return null;
   }
 }
