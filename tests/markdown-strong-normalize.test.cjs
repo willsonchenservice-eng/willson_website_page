@@ -6,22 +6,10 @@ const contentSource = fs.readFileSync(path.join(process.cwd(), "lib", "content.t
 const notionSource = fs.readFileSync(path.join(process.cwd(), "lib", "notion.ts"), "utf8");
 const syncSource = fs.readFileSync(path.join(process.cwd(), "scripts", "sync-wechat-writing.mjs"), "utf8");
 
-assert.match(
+assert.doesNotMatch(
   contentSource,
-  /function normalizeMarkdownStrongDelimiters\(markdown: string\)/,
-  "Local writing content should normalize malformed adjacent bold delimiters."
-);
-
-assert.match(
-  contentSource,
-  /const normalizedContent = normalizeMarkdownStrongDelimiters\(content\)/,
-  "Local writing MDX should be normalized before rendering and summary extraction."
-);
-
-assert.match(
-  contentSource,
-  /replace\(\/\\\*\\\*\(\[\^\*\\n\]\*\?\\S\)\\s\+\\\*\\\*\(\?=\\S\)\/g, "\*\*\$1\*\* "\)/,
-  "Local writing content should normalize bold delimiters that close after a stray inner space."
+  /normalizeMarkdownStrongDelimiters/,
+  "Production writing content should not keep local MDX normalization because Blog is sourced from Notion."
 );
 
 assert.match(

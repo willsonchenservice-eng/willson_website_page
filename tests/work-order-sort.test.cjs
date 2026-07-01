@@ -6,7 +6,7 @@ const contentSource = fs.readFileSync(path.join(process.cwd(), "lib", "content.t
 const notionSource = fs.readFileSync(path.join(process.cwd(), "lib", "notion.ts"), "utf8");
 
 assert(
-  contentSource.includes("allWorks.sort((a, b) => (a.order ?? 999) - (b.order ?? 999))"),
+  contentSource.includes(".sort((a, b) => (a.order ?? 999) - (b.order ?? 999))"),
   "getAllWork should sort Work previews by the numeric order field."
 );
 

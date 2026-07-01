@@ -30,6 +30,6 @@ expectSource("function propUrl", "Expected Notion URL fields to support url and 
 expectSource("function normalizeUrlValue", "Expected Work project links to ignore non-URL marker values.");
 expectSource("/^(https?:\\/\\/|\\/)/i.test(url)", "Expected Work project links to allow only web or site URLs.");
 expectSource("const externalLink = propUrl(externalLinkProp);", "Expected Work external links to use normalized URL extraction.");
-expectSource("ensureUniqueWorkSlugs(works).sort", "Expected Notion Work results to be sorted after mapping as a fallback.");
+expectSource("const sortedWorks = works.sort", "Expected Notion Work results to be sorted after mapping.");
 
 console.log("OK: Notion database links and localized schema aliases are supported.");
