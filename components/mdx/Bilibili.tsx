@@ -3,12 +3,14 @@ export default function Bilibili({ bvid }: { bvid: string }) {
 
   let src: string;
   if (bvid.startsWith("ep")) {
+    if (!/^ep\d+$/.test(bvid)) return null;
     // 处理 ep 链接
     const epId = bvid.replace("ep", "");
-    src = `//player.bilibili.com/player.html?ep_id=${epId}&page=1&high_quality=1&danmaku=0`;
+    src = `https://player.bilibili.com/player.html?ep_id=${epId}&page=1&high_quality=1&danmaku=0`;
   } else {
+    if (!/^BV[a-zA-Z0-9]+$/.test(bvid)) return null;
     // 处理普通 BV 链接
-    src = `//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0`;
+    src = `https://player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0`;
   }
 
   return (
@@ -18,9 +20,12 @@ export default function Bilibili({ bvid }: { bvid: string }) {
     >
       <iframe
         src={src}
+        title="Bilibili 视频"
         scrolling="no"
         frameBorder="0"
         allowFullScreen={true}
+        loading="lazy"
+        referrerPolicy="strict-origin-when-cross-origin"
         className="absolute top-0 left-0 w-full h-full"
       />
     </div>

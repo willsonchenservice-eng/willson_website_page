@@ -6,29 +6,28 @@ const source = fs.readFileSync(path.join(process.cwd(), "lib", "content.ts"), "u
 const notionSource = fs.readFileSync(path.join(process.cwd(), "lib", "notion.ts"), "utf8");
 
 assert(
-  !source.includes("readLocalWorkFull") && !source.includes("readLocalWritingFull"),
-  "Work/Writing production content must not keep local MDX readers."
+  source.includes("readLocalCollection") && source.includes("localWorkEntries") && source.includes("localWritingEntries"),
+  "Work/Writing must retain repository MDX readers for offline and degraded builds."
 );
 
 assert(
-  !source.includes('readCollection("work")') && !source.includes('readCollection("writing")'),
-  "Work/Writing production content must not read local MDX collections."
+  source.includes("REQUIRE_NOTION_CONTENT") && source.includes("Using repository MDX fallback"),
+  "Notion content strictness must be explicit while local fallback remains available."
 );
 
 assert(
-  source.includes("Notion Work content is required but no work entries were returned.") &&
-    source.includes("Notion Writing content is required but no writing entries were returned."),
-  "Work/Writing should fail fast when required Notion content is unavailable."
+  source.includes('useLocalFallback("Work")') && source.includes('useLocalFallback("Writing")'),
+  "Work/Writing should use the local fallback when Notion is unavailable."
 );
 
 assert(
-  !/Falling back to local MDX/.test(notionSource),
-  "Notion Work/Writing unavailable messages should not imply local MDX fallback."
+  notionSource.includes("Returning no work entries") && notionSource.includes("Returning no writing entries"),
+  "Notion fetchers should return a controlled empty result for the content layer to handle."
 );
 
 assert(
-  source.includes("Duplicate Notion"),
-  "Work/Writing must fail fast when Notion returns duplicate slugs for dynamic routes."
+  source.includes("Duplicate ${collectionName} slug"),
+  "Work/Writing must fail fast when duplicate slugs would create ambiguous routes."
 );
 
-console.log("PASS: Work and Writing production content comes from Notion only.");
+console.log("PASS: Work and Writing prefer Notion and retain a strict local MDX fallback.");

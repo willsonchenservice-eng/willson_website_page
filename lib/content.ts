@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { load as parseYaml } from "js-yaml";
 import {
   fetchNotionWriting,
   fetchNotionWritingPreview,
@@ -72,6 +73,126 @@ export interface WritingFull extends WritingMeta {
   content: string;
 }
 
+const CONTENT_DIR = path.join(process.cwd(), "content");
+const REQUIRE_NOTION_CONTENT = process.env.REQUIRE_NOTION_CONTENT === "1";
+const warnedFallbacks = new Set<string>();
+
+type ParsedMdx = {
+  slug: string;
+  data: Record<string, unknown>;
+  content: string;
+};
+
+function parseMdx(source: string) {
+  const match = source.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*(?:\r?\n|$)/);
+  if (!match) return { data: {}, content: source.trim() };
+
+  const parsed = parseYaml(match[1]);
+  const data = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+    ? (parsed as Record<string, unknown>)
+    : {};
+  return { data, content: source.slice(match[0].length).trim() };
+}
+
+function readLocalCollection(collection: "work" | "writing"): ParsedMdx[] {
+  const directory = path.join(CONTENT_DIR, collection);
+  if (!fs.existsSync(directory)) return [];
+
+  return fs
+    .readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".mdx"))
+    .sort((a, b) => a.name.localeCompare(b.name, "en"))
+    .map((entry) => {
+      const filePath = path.join(directory, entry.name);
+      const parsed = parseMdx(fs.readFileSync(filePath, "utf8"));
+      return {
+        slug: entry.name.replace(/\.mdx$/i, ""),
+        data: parsed.data,
+        content: parsed.content,
+      };
+    });
+}
+
+function asString(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return undefined;
+}
+
+function asStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const values = value.map(asString).filter((item): item is string => Boolean(item));
+  return values.length > 0 ? values : undefined;
+}
+
+function asBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return undefined;
+}
+
+function localWorkEntries(): WorkFull[] {
+  return readLocalCollection("work").map(({ slug, data, content }) => ({
+    slug,
+    title: asString(data.title) || slug,
+    client: asString(data.client),
+    role: asString(data.role),
+    year: asString(data.year),
+    summary: asString(data.summary) || extractSummary(content),
+    summaryIsGenerated: !asString(data.summary),
+    cover: asString(data.cover),
+    coverType: asString(data.coverType) as WorkFull["coverType"],
+    coverFit: asString(data.coverFit) as WorkFull["coverFit"],
+    coverAspect: asString(data.coverAspect),
+    tags: asStringArray(data.tags),
+    order: typeof data.order === "number" ? data.order : undefined,
+    draft: asBoolean(data.draft),
+    externalLink: asString(data.externalLink),
+    content,
+  }));
+}
+
+function localWritingEntries(): WritingFull[] {
+  return readLocalCollection("writing").map(({ slug, data, content }) => ({
+    slug,
+    title: asString(data.title) || slug,
+    date: asString(data.date) || "1970-01-01",
+    summary: asString(data.summary) || extractSummary(content),
+    topic: asString(data.topic),
+    source: asString(data.source),
+    sourceUrl: asString(data.sourceUrl),
+    draft: asBoolean(data.draft),
+    content,
+  }));
+}
+
+let localWorkCache: WorkFull[] | undefined;
+let localWritingCache: WritingFull[] | undefined;
+
+function getLocalWorkEntries() {
+  localWorkCache ??= localWorkEntries();
+  return localWorkCache;
+}
+
+function getLocalWritingEntries() {
+  localWritingCache ??= localWritingEntries();
+  return localWritingCache;
+}
+
+function useLocalFallback(collection: "Work" | "Writing") {
+  if (REQUIRE_NOTION_CONTENT) {
+    throw new Error(
+      `Required Notion ${collection} content is unavailable. Set valid Notion credentials or remove REQUIRE_NOTION_CONTENT=1 for local fallback.`
+    );
+  }
+
+  if (!warnedFallbacks.has(collection)) {
+    warnedFallbacks.add(collection);
+    console.warn(`Notion ${collection} content unavailable. Using repository MDX fallback.`);
+  }
+}
+
 function debugLog(...args: unknown[]) {
   if (process.env.DEBUG_NOTION === "1") {
     console.info(...args);
@@ -105,7 +226,7 @@ function assertUniqueSlugs(items: Array<{ slug: string; title: string }>, collec
     const existing = seen.get(item.slug);
     if (existing) {
       throw new Error(
-        `Duplicate Notion ${collectionName} slug "${item.slug}" for "${existing}" and "${item.title}". Slugs must be unique because they are used as static route params.`
+        `Duplicate ${collectionName} slug "${item.slug}" for "${existing}" and "${item.title}". Slugs must be unique because they are used as static route params.`
       );
     }
     seen.set(item.slug, item.title);
@@ -115,25 +236,20 @@ function assertUniqueSlugs(items: Array<{ slug: string; title: string }>, collec
 export async function getAllWorkFull(): Promise<WorkFull[]> {
   debugLog("getAllWorkFull: Trying Notion...");
   const notionWorks = await fetchNotionWork();
-  if (notionWorks && notionWorks.length > 0) {
-    const works = notionWorks as WorkFull[];
-    assertUniqueSlugs(works, "Work");
-    debugLog("getAllWorkFull: Using Notion data,", works.length, "works");
-    return works
-      .map(normalizeWorkCover)
-      .filter((w: WorkFull) => !w.draft)
-      .sort((a: WorkFull, b: WorkFull) => (a.order ?? 99) - (b.order ?? 99));
-  }
-
-  throw new Error("Notion Work content is required but no work entries were returned.");
+  const works = notionWorks?.length ? (notionWorks as WorkFull[]) : getLocalWorkEntries();
+  if (!notionWorks?.length) useLocalFallback("Work");
+  assertUniqueSlugs(works, "Work");
+  debugLog("getAllWorkFull: Using", notionWorks?.length ? "Notion" : "local", "data,", works.length, "works");
+  return works
+    .map(normalizeWorkCover)
+    .filter((w: WorkFull) => !w.draft)
+    .sort((a: WorkFull, b: WorkFull) => (a.order ?? 99) - (b.order ?? 99));
 }
 
 export async function getAllWork(): Promise<WorkMeta[]> {
   const notionWorks = await fetchNotionWork(false, false);
-  if (!notionWorks || notionWorks.length === 0) {
-    throw new Error("Notion Work content is required but no work entries were returned.");
-  }
-  const allWorks = (notionWorks as WorkFull[]).map(normalizeWorkCover);
+  const allWorks = (notionWorks?.length ? (notionWorks as WorkFull[]) : getLocalWorkEntries()).map(normalizeWorkCover);
+  if (!notionWorks?.length) useLocalFallback("Work");
   assertUniqueSlugs(allWorks, "Work");
   return allWorks.filter((w) => !w.draft).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)).map(w => ({
     slug: w.slug,
@@ -172,10 +288,8 @@ function safeDecodeURIComponent(value: string) {
 
 export async function getAllWriting(): Promise<WritingMeta[]> {
   const notionWritings = await fetchNotionWritingPreview();
-  if (!notionWritings || notionWritings.length === 0) {
-    throw new Error("Notion Writing content is required but no writing entries were returned.");
-  }
-  const writings = notionWritings as WritingFull[];
+  const writings = notionWritings?.length ? (notionWritings as WritingFull[]) : getLocalWritingEntries();
+  if (!notionWritings?.length) useLocalFallback("Writing");
   assertUniqueSlugs(writings, "Writing");
   return writings
     .filter((w) => !w.draft)
@@ -192,17 +306,14 @@ export async function getWriting(slug: string) {
 export async function getAllWritingFull(): Promise<WritingFull[]> {
   debugLog("getAllWritingFull: Trying Notion...");
   const notionWritings = await fetchNotionWriting();
-  if (notionWritings && notionWritings.length > 0) {
-    const writings = notionWritings as WritingFull[];
-    assertUniqueSlugs(writings, "Writing");
-    debugLog("getAllWritingFull: Using Notion data,", writings.length, "posts");
-    debugLog("getAllWritingFull: Posts:", writings.map((p: WritingFull) => ({ title: p.title, slug: p.slug })));
-    return writings
-      .filter((w) => !w.draft)
-      .sort((a, b) => (a.date < b.date ? 1 : -1));
-  }
-
-  throw new Error("Notion Writing content is required but no writing entries were returned.");
+  const writings = notionWritings?.length ? (notionWritings as WritingFull[]) : getLocalWritingEntries();
+  if (!notionWritings?.length) useLocalFallback("Writing");
+  assertUniqueSlugs(writings, "Writing");
+  debugLog("getAllWritingFull: Using", notionWritings?.length ? "Notion" : "local", "data,", writings.length, "posts");
+  debugLog("getAllWritingFull: Posts:", writings.map((p: WritingFull) => ({ title: p.title, slug: p.slug })));
+  return writings
+    .filter((w) => !w.draft)
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
 export type Photo = {

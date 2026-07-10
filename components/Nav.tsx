@@ -5,6 +5,7 @@ import { site } from "@/lib/site";
 const links = [
   { href: "/work", label: "作品" },
   { href: "/writing", label: "Blog" },
+  { href: "/about", label: "关于" },
   { href: "/services", label: "服务" },
 ];
 
