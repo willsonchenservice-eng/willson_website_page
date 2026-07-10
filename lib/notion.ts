@@ -11,13 +11,21 @@ function envNumber(name: string, fallback: number) {
 const NOTION_TIMEOUT_MS = envNumber("NOTION_TIMEOUT_MS", 10000);
 const NOTION_MAX_RETRIES = envNumber("NOTION_MAX_RETRIES", 1);
 const NOTION_IMAGE_DOWNLOAD_TIMEOUT_MS = envNumber("NOTION_IMAGE_DOWNLOAD_TIMEOUT_MS", 15000);
+const NOTION_PAGE_SIZE = 100;
+const NOTION_MAX_PAGES = Math.max(1, Math.min(envNumber("NOTION_MAX_PAGES", 100), 1000));
+const NOTION_ITEM_CONCURRENCY = Math.max(1, Math.min(envNumber("NOTION_ITEM_CONCURRENCY", 4), 8));
 
-const notion = new Client({
-  auth: process.env.NOTION_API_KEY,
-  logLevel: LogLevel.ERROR,
-  timeoutMs: NOTION_TIMEOUT_MS,
-  retry: NOTION_MAX_RETRIES === 0 ? false : { maxRetries: NOTION_MAX_RETRIES },
-});
+let notionClient: Client | undefined;
+
+function getNotionClient() {
+  notionClient ??= new Client({
+    auth: process.env.NOTION_API_KEY,
+    logLevel: LogLevel.ERROR,
+    timeoutMs: NOTION_TIMEOUT_MS,
+    retry: NOTION_MAX_RETRIES === 0 ? false : { maxRetries: NOTION_MAX_RETRIES },
+  });
+  return notionClient;
+}
 
 function debugLog(...args: unknown[]) {
   if (process.env.DEBUG_NOTION === "1") {
@@ -47,6 +55,54 @@ const getCache = () => {
   return (globalThis as any).__notionCache;
 };
 const CACHE_DURATION = 5 * 60 * 1000; // 5 分钟;
+
+type DataSourceQueryArgs = Omit<Parameters<Client["dataSources"]["query"]>[0], "start_cursor">;
+
+async function queryAllDataSourcePages(args: DataSourceQueryArgs) {
+  const results: any[] = [];
+  let cursor: string | undefined;
+  let pageCount = 0;
+
+  do {
+    pageCount += 1;
+    if (pageCount > NOTION_MAX_PAGES) {
+      throw new Error(`Notion query exceeded the ${NOTION_MAX_PAGES}-page safety limit.`);
+    }
+
+    const response = await getNotionClient().dataSources.query({
+      ...args,
+      page_size: NOTION_PAGE_SIZE,
+      ...(cursor ? { start_cursor: cursor } : {}),
+    });
+    results.push(...response.results);
+    cursor = response.has_more ? response.next_cursor ?? undefined : undefined;
+  } while (cursor);
+
+  return results;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  mapper: (item: T, index: number) => Promise<R>,
+  concurrency = NOTION_ITEM_CONCURRENCY
+) {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= items.length) return;
+      results[index] = await mapper(items[index], index);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(Math.max(1, concurrency), items.length) }, () => worker())
+  );
+  return results;
+}
 
 function formatNotionError(error: unknown) {
   if (error && typeof error === "object") {
@@ -239,10 +295,10 @@ async function resolveDataSource(id: string, force: boolean = false): Promise<Re
   }
 
   try {
-    const database = await notion.databases.retrieve({ database_id: id });
+    const database = await getNotionClient().databases.retrieve({ database_id: id });
     const dataSourceId = (database as any).data_sources?.[0]?.id;
     if (dataSourceId) {
-      const dataSource = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+      const dataSource = await getNotionClient().dataSources.retrieve({ data_source_id: dataSourceId });
       const resolved = {
         id: dataSourceId,
         properties: "properties" in dataSource ? dataSource.properties : {},
@@ -252,7 +308,7 @@ async function resolveDataSource(id: string, force: boolean = false): Promise<Re
     }
   } catch {}
 
-  const dataSource = await notion.dataSources.retrieve({ data_source_id: id });
+  const dataSource = await getNotionClient().dataSources.retrieve({ data_source_id: id });
   const resolved = {
     id,
     properties: "properties" in dataSource ? dataSource.properties : {},
@@ -283,9 +339,9 @@ async function downloadImage(
 
   // 检查是否已经有这个 fileId 的图片（不关心后缀）
   const existingFiles = fs.readdirSync(imagesDir);
-  const existingFile = existingFiles.find(f => f.startsWith(fileId));
+  const existingFile = existingFiles.find(f => f.startsWith(`${fileId}.`));
   const fallbackFile = fallbackFileId
-    ? existingFiles.find(f => f.startsWith(fallbackFileId))
+    ? existingFiles.find(f => f.startsWith(`${fallbackFileId}.`))
     : undefined;
   if (existingFile && !force) {
     debugLog(`Using cached image: ${existingFile} for fileId: ${fileId}`);
@@ -521,7 +577,7 @@ function normalizeBasicMarkdown(markdown: string) {
 export async function fetchNotionWritingPreview(force: boolean = false) {
   const databaseId = process.env.NOTION_DATABASE_ID;
   if (!databaseId || !process.env.NOTION_API_KEY) {
-    console.warn("Missing Notion writing environment variables. Returning no writing entries.");
+    debugLog("Missing Notion writing environment variables. Returning no writing entries.");
     return null;
   }
 
@@ -535,13 +591,13 @@ export async function fetchNotionWritingPreview(force: boolean = false) {
     const dataSource = await resolveDataSource(databaseId, force);
     const filter = buildStatusFilter(dataSource.properties);
     const sorts = buildDateSort(dataSource.properties);
-    const response = await notion.dataSources.query({
+    const results = await queryAllDataSourcePages({
       data_source_id: dataSource.id,
       ...(filter ? { filter } : {}),
       ...(sorts ? { sorts } : {}),
     });
 
-    const writings = response.results
+    const writings = results
       .filter((item): item is { id: string; properties: Record<string, any>; object: "page" } =>
         item.object === "page"
       )
@@ -580,7 +636,7 @@ export async function fetchNotionWritingPreview(force: boolean = false) {
 export async function fetchNotionWriting(force: boolean = false) {
   const databaseId = process.env.NOTION_DATABASE_ID;
   if (!databaseId || !process.env.NOTION_API_KEY) {
-    console.warn("Missing Notion writing environment variables. Returning no writing entries.");
+    debugLog("Missing Notion writing environment variables. Returning no writing entries.");
     return null;
   }
 
@@ -596,18 +652,16 @@ export async function fetchNotionWriting(force: boolean = false) {
     const dataSource = await resolveDataSource(databaseId, force);
     const filter = buildStatusFilter(dataSource.properties);
     const sorts = buildDateSort(dataSource.properties);
-    const response = await notion.dataSources.query({
+    const results = await queryAllDataSourcePages({
       data_source_id: dataSource.id,
       ...(filter ? { filter } : {}),
       ...(sorts ? { sorts } : {}),
     });
 
-    const writings = await Promise.all(
-      response.results
-        .filter((item): item is { id: string; properties: Record<string, any>; object: "page" } =>
-          item.object === "page"
-        )
-        .map(async (page) => {
+    const writingPages = results.filter((item): item is { id: string; properties: Record<string, any>; object: "page" } =>
+      item.object === "page"
+    );
+    const writings = await mapWithConcurrency(writingPages, async (page) => {
           const props = page.properties;
 
           const titleProp = getProp(props, ["名称", "Name", "Title"]);
@@ -625,7 +679,7 @@ export async function fetchNotionWriting(force: boolean = false) {
           let topic: string | undefined;
           if (topicProp?.multi_select?.[0]) topic = topicProp.multi_select[0].name;
 
-          const mdResponse = await notion.pages.retrieveMarkdown({ page_id: page.id });
+          const mdResponse = await getNotionClient().pages.retrieveMarkdown({ page_id: page.id });
           let content = propPlainText(contentProp) || mdResponse.markdown || "";
           content = normalizeBasicMarkdown(content);
           content = await processNotionImages(content, page.id, force);
@@ -644,8 +698,7 @@ export async function fetchNotionWriting(force: boolean = false) {
             sourceUrl: undefined,
             content,
           };
-        })
-    );
+    });
 
     cache.writings = writings;
     cache.time = now;
@@ -690,7 +743,14 @@ function propUrl(prop: any): string | undefined {
 function normalizeUrlValue(value?: string): string | undefined {
   const url = value?.trim();
   if (!url) return undefined;
-  return /^(https?:\/\/|\/)/i.test(url) ? url : undefined;
+  if (/^https?:\/\//i.test(url)) return url;
+  return /^\/(?!\/)/.test(url) ? url : undefined;
+}
+
+function safeExternalUrl(value?: string) {
+  const url = normalizeUrlValue(value);
+  if (!url || url.startsWith("/")) return url;
+  return /^https?:\/\//i.test(url) ? url : undefined;
 }
 
 function propNumber(prop: any): number | undefined {
@@ -748,7 +808,7 @@ async function resolveNotionAssetUrl(
 export async function fetchNotionBeliefs(force: boolean = false) {
   const databaseId = process.env.NOTION_BELIEFS_DATABASE_ID;
   if (!databaseId || !process.env.NOTION_API_KEY) {
-    console.warn("Missing Notion Beliefs database env vars. Falling back to local.");
+    debugLog("Missing Notion Beliefs database env vars. Falling back to local.");
     return null;
   }
 
@@ -761,7 +821,7 @@ export async function fetchNotionBeliefs(force: boolean = false) {
   debugLog("Notion: Fetching beliefs from database...");
 
   try {
-    const response = await notion.dataSources.query({
+    const results = await queryAllDataSourcePages({
       data_source_id: databaseId,
       filter: {
         property: "Status",
@@ -777,7 +837,7 @@ export async function fetchNotionBeliefs(force: boolean = false) {
       ],
     });
 
-    const beliefs = response.results
+    const beliefs = results
       .filter((item): item is { id: string; properties: Record<string, any>; object: "page" } =>
         item.object === "page"
       )
@@ -810,7 +870,7 @@ export async function fetchNotionBeliefs(force: boolean = false) {
 export async function fetchNotionSocial(force: boolean = false) {
   const databaseId = process.env.NOTION_SOCIAL_DATABASE_ID;
   if (!databaseId || !process.env.NOTION_API_KEY) {
-    console.warn("Missing Notion Social database env vars. Falling back to local.");
+    debugLog("Missing Notion Social database env vars. Falling back to local.");
     return null;
   }
 
@@ -823,7 +883,7 @@ export async function fetchNotionSocial(force: boolean = false) {
   debugLog("Notion: Fetching social from database...");
 
   try {
-    const response = await notion.dataSources.query({
+    const results = await queryAllDataSourcePages({
       data_source_id: databaseId,
       filter: {
         property: "Status",
@@ -839,12 +899,10 @@ export async function fetchNotionSocial(force: boolean = false) {
       ],
     });
 
-    const social = await Promise.all(
-      response.results
-        .filter((item): item is { id: string; properties: Record<string, any>; object: "page" } =>
-          item.object === "page"
-        )
-        .map(async (page) => {
+    const socialPages = results.filter((item): item is { id: string; properties: Record<string, any>; object: "page" } =>
+      item.object === "page"
+    );
+    const social = await mapWithConcurrency(socialPages, async (page) => {
           const props = page.properties;
 
           const titleProp = getProp(props, ["名称", "Name", "Title", "标题"]);
@@ -856,7 +914,7 @@ export async function fetchNotionSocial(force: boolean = false) {
 
           const postTitle = titleProp?.title?.[0]?.plain_text || "";
           const body = bodyProp?.rich_text?.[0]?.plain_text || "";
-          const href = linkProp?.url || "";
+          const href = propUrl(linkProp) || "";
           const aspectRatio = aspectProp?.rich_text?.[0]?.plain_text || "16 / 9";
 
           let src: string | undefined;
@@ -873,11 +931,11 @@ export async function fetchNotionSocial(force: boolean = false) {
                 );
               } catch (e) {}
             } else if (file.type === "external" && file.external?.url) {
-              src = file.external.url;
+              src = safeExternalUrl(file.external.url);
             }
           }
           if (!src && externalUrlProp?.url) {
-            src = externalUrlProp.url;
+            src = safeExternalUrl(externalUrlProp.url);
           }
 
           return {
@@ -887,8 +945,7 @@ export async function fetchNotionSocial(force: boolean = false) {
             body,
             aspectRatio,
           };
-        })
-    );
+    });
 
     cache.social = social;
     cache.time = now;
@@ -902,7 +959,7 @@ export async function fetchNotionSocial(force: boolean = false) {
 export async function fetchNotionWork(force: boolean = false, includeContent: boolean = true) {
   const databaseId = process.env.NOTION_WORK_DATABASE_ID;
   if (!databaseId || !process.env.NOTION_API_KEY) {
-    console.warn("Missing Notion Work database env vars. Returning no work entries.");
+    debugLog("Missing Notion Work database env vars. Returning no work entries.");
     return null;
   }
 
@@ -919,18 +976,16 @@ export async function fetchNotionWork(force: boolean = false, includeContent: bo
     const dataSource = await resolveDataSource(databaseId, force);
     const filter = buildStatusFilter(dataSource.properties);
     const sorts = buildOrderSort(dataSource.properties);
-    const response = await notion.dataSources.query({
+    const results = await queryAllDataSourcePages({
       data_source_id: dataSource.id,
       ...(filter ? { filter } : {}),
       ...(sorts ? { sorts } : {}),
     });
 
-    const works = await Promise.all(
-      response.results
-        .filter((item): item is { id: string; properties: Record<string, any>; object: "page" } =>
-          item.object === "page"
-        )
-        .map(async (page) => {
+    const workPages = results.filter((item): item is { id: string; properties: Record<string, any>; object: "page" } =>
+      item.object === "page"
+    );
+    const works = await mapWithConcurrency(workPages, async (page) => {
           const props = page.properties;
 
           const titleProp = getProp(props, ["名称", "Name", "Title"]);
@@ -981,7 +1036,7 @@ export async function fetchNotionWork(force: boolean = false, includeContent: bo
 
           let content = "";
           if (includeContent) {
-            const mdResponse = await notion.pages.retrieveMarkdown({ page_id: page.id });
+            const mdResponse = await getNotionClient().pages.retrieveMarkdown({ page_id: page.id });
             content = normalizeWorkMarkdown(mdResponse.markdown || "");
             content = await processNotionImages(content, page.id, force);
           }
@@ -1003,8 +1058,7 @@ export async function fetchNotionWork(force: boolean = false, includeContent: bo
             externalLink,
             content,
           };
-        })
-    );
+    });
 
     const sortedWorks = works.sort(
       (a, b) => (a.order ?? 999) - (b.order ?? 999)
@@ -1031,7 +1085,7 @@ function sanitizeWorkCoverUrl(url?: string) {
 export async function fetchNotionPhotos(force: boolean = false) {
   const databaseId = process.env.NOTION_PHOTOS_DATABASE_ID;
   if (!databaseId || !process.env.NOTION_API_KEY) {
-    console.warn("Missing Notion Photos database env vars. Falling back to local photos.");
+    debugLog("Missing Notion Photos database env vars. Falling back to local photos.");
     return null;
   }
 
@@ -1047,18 +1101,16 @@ export async function fetchNotionPhotos(force: boolean = false) {
     const dataSource = await resolveDataSource(databaseId, force);
     const filter = buildStatusFilter(dataSource.properties);
     const sorts = buildOrderSort(dataSource.properties);
-    const response = await notion.dataSources.query({
+    const results = await queryAllDataSourcePages({
       data_source_id: dataSource.id,
       ...(filter ? { filter } : {}),
       ...(sorts ? { sorts } : {}),
     });
 
-    const photos = await Promise.all(
-      response.results
-        .filter((item): item is { id: string; properties: Record<string, any>; object: "page" } =>
-          item.object === "page"
-        )
-        .map(async (page, index) => {
+    const photoPages = results.filter((item): item is { id: string; properties: Record<string, any>; object: "page" } =>
+      item.object === "page"
+    );
+    const photos = await mapWithConcurrency(photoPages, async (page, index) => {
           const props = page.properties;
 
           const titleProp = getProp(props, ["名称", "Name", "Title", "Caption"]);
@@ -1092,17 +1144,17 @@ export async function fetchNotionPhotos(force: boolean = false) {
                 );
               } catch (e) {}
             } else if (file.type === "external" && file.external?.url) {
-              src = file.external.url;
+              src = safeExternalUrl(file.external.url);
             }
           }
           if (!src && externalUrlProp?.url) {
-            src = externalUrlProp.url;
+            src = safeExternalUrl(externalUrlProp.url);
           }
 
           return {
             src: src || "",
             caption,
-            href: linkProp?.url,
+            href: propUrl(linkProp),
             fit: fitProp?.select?.name as "cover" | "contain",
             imageScale: imageScaleProp?.number,
             rotate: rotateProp?.number ?? 0,
@@ -1113,8 +1165,7 @@ export async function fetchNotionPhotos(force: boolean = false) {
             zIndex: zIndexProp?.number ?? index + 1,
             hideOnMobile: hideOnMobileProp?.checkbox ?? false,
           };
-        })
-    );
+    });
 
     cache.photos = photos;
     cache.time = now;

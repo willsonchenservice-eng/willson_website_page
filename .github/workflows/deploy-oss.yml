@@ -10,25 +10,21 @@ concurrency:
   group: deploy-oss
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     name: Build and sync static export
     runs-on: ubuntu-latest
-    env:
-      ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
-      ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
-      ALIYUN_OSS_BUCKET: ${{ secrets.ALIYUN_OSS_BUCKET }}
-      ALIYUN_OSS_ENDPOINT: ${{ secrets.ALIYUN_OSS_ENDPOINT }}
-      ALIYUN_CDN_DOMAIN: me.remeetapp.com
-      NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
-      NOTION_WORK_DATABASE_ID: ${{ secrets.NOTION_WORK_DATABASE_ID }}
-      NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -37,21 +33,44 @@ jobs:
         run: npm ci
 
       - name: Verify Notion content secrets
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_WORK_DATABASE_ID: ${{ secrets.NOTION_WORK_DATABASE_ID }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
         run: |
           : "${NOTION_API_KEY:?Missing GitHub secret NOTION_API_KEY}"
           : "${NOTION_WORK_DATABASE_ID:?Missing GitHub secret NOTION_WORK_DATABASE_ID}"
           : "${NOTION_DATABASE_ID:?Missing GitHub secret NOTION_DATABASE_ID}"
 
+      - name: Run regression tests
+        run: npm test
+
       - name: Build static site
+        env:
+          REQUIRE_NOTION_CONTENT: "1"
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_WORK_DATABASE_ID: ${{ secrets.NOTION_WORK_DATABASE_ID }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
         run: npm run build
 
       - name: Verify static export
         run: test -f out/index.html
 
       - name: Install ossutil
-        run: curl -fsSL https://gosspublic.alicdn.com/ossutil/install.sh | sudo bash
+        run: |
+          set -euo pipefail
+          installer="$RUNNER_TEMP/ossutil-install.sh"
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+            https://gosspublic.alicdn.com/ossutil/install.sh -o "$installer"
+          bash -n "$installer"
+          sudo bash "$installer"
 
       - name: Sync static export to OSS
+        env:
+          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+          ALIYUN_OSS_BUCKET: ${{ secrets.ALIYUN_OSS_BUCKET }}
+          ALIYUN_OSS_ENDPOINT: ${{ secrets.ALIYUN_OSS_ENDPOINT }}
         run: |
           ossutil sync out/ "oss://${ALIYUN_OSS_BUCKET}/" \
             -e "${ALIYUN_OSS_ENDPOINT}" \
@@ -60,9 +79,18 @@ jobs:
             -f
 
       - name: Install Alibaba Cloud CLI
-        run: curl -fsSL https://aliyuncli.alicdn.com/install.sh | sudo bash
+        run: |
+          set -euo pipefail
+          installer="$RUNNER_TEMP/aliyun-install.sh"
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+            https://aliyuncli.alicdn.com/install.sh -o "$installer"
+          bash -n "$installer"
+          sudo bash "$installer"
 
       - name: Refresh CDN cache
+        env:
+          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
         run: |
           aliyun configure set \
             --profile default \
@@ -72,5 +100,5 @@ jobs:
             --access-key-secret "${ALIYUN_ACCESS_KEY_SECRET}"
 
           aliyun cdn RefreshObjectCaches \
-            --ObjectPath "https://${ALIYUN_CDN_DOMAIN}/" \
+            --ObjectPath "https://me.remeetapp.com/" \
             --ObjectType Directory

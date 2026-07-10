@@ -1,5 +1,18 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Content and build modes
+
+Work and Writing content prefer the Notion databases configured in [`NOTION_SETUP.md`](./NOTION_SETUP.md). If Notion is unavailable, local MDX under `content/work` and `content/writing` is used so a checkout can still build and preview the site.
+
+Copy [`.env.example`](./.env.example) to `.env.local` for local configuration. Release CI sets `REQUIRE_NOTION_CONTENT=1`, so a deployment fails clearly instead of publishing stale local content when the required Notion data cannot be read.
+
+Run the checks before opening a pull request:
+
+```bash
+npm test
+npm run build
+```
+
 ## Getting Started
 
 First, run the development server:

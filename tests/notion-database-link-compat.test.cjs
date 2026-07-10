@@ -11,7 +11,7 @@ function expectSource(fragment, message) {
 }
 
 expectSource("resolveDataSource", "Expected Notion database IDs to be resolved to data source IDs before querying.");
-expectSource("notion.databases.retrieve", "Expected Notion database retrieval for database links copied from Notion.");
+expectSource("getNotionClient().databases.retrieve", "Expected Notion database retrieval for database links copied from Notion.");
 expectSource("data_sources?.[0]?.id", "Expected first database data source ID to be used for query.");
 expectSource("buildStatusFilter", "Expected status filter to be built from the actual Notion schema.");
 expectSource("buildOrderSort", "Expected order sort to be optional based on the actual Notion schema.");
@@ -28,7 +28,7 @@ expectSource('"作品链接"', "Expected Chinese Work project link property alia
 expectSource('"Project Link"', "Expected English Work project link property alias.");
 expectSource("function propUrl", "Expected Notion URL fields to support url and text property shapes.");
 expectSource("function normalizeUrlValue", "Expected Work project links to ignore non-URL marker values.");
-expectSource("/^(https?:\\/\\/|\\/)/i.test(url)", "Expected Work project links to allow only web or site URLs.");
+expectSource("if (/^https?:\\/\\//i.test(url)) return url;", "Expected Work project links to allow only web URLs.");
 expectSource("const externalLink = propUrl(externalLinkProp);", "Expected Work external links to use normalized URL extraction.");
 expectSource("const sortedWorks = works.sort", "Expected Notion Work results to be sorted after mapping.");
 
